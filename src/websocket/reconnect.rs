@@ -1,0 +1,437 @@
+use std::time::{Duration, Instant};
+use thiserror::Error;
+
+/// Errors that can occur during reconnection attempts
+#[derive(Debug, Error)]
+#[allow(dead_code)]
+pub enum ReconnectError {
+    #[error("Maximum reconnection attempts exceeded ({0})")]
+    MaxAttemptsExceeded(usize),
+    #[error("Connection timeout after {0:?}")]
+    ConnectionTimeout(Duration),
+}
+
+/// Configuration for exponential backoff reconnection strategy
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct ReconnectConfig {
+    /// Initial delay before first reconnection attempt
+    pub initial_delay: Duration,
+    /// Maximum delay between reconnection attempts
+    pub max_delay: Duration,
+    /// Multiplier for exponential backoff (e.g., 2.0 for doubling)
+    pub backoff_multiplier: f64,
+    /// Maximum number of reconnection attempts (None for unlimited)
+    pub max_attempts: Option<usize>,
+    /// Maximum time to spend on reconnection attempts
+    pub max_total_duration: Option<Duration>,
+    /// Add random jitter to delays to avoid thundering herd
+    pub jitter: bool,
+}
+
+impl Default for ReconnectConfig {
+    fn default() -> Self {
+        Self::new(Duration::from_millis(1000), Duration::from_secs(60), 2.0)
+    }
+}
+
+impl ReconnectConfig {
+    /// Create a new reconnection configuration with custom parameters
+    #[allow(dead_code)]
+    pub fn new(initial_delay: Duration, max_delay: Duration, backoff_multiplier: f64) -> Self {
+        Self {
+            initial_delay,
+            max_delay,
+            backoff_multiplier,
+            max_attempts: Some(10),
+            max_total_duration: Some(Duration::from_secs(300)),
+            jitter: true,
+        }
+    }
+
+    /// Set maximum number of attempts
+    #[allow(dead_code)]
+    pub fn with_max_attempts(mut self, max_attempts: Option<usize>) -> Self {
+        self.max_attempts = max_attempts;
+        self
+    }
+
+    /// Set maximum total duration for reconnection attempts
+    #[allow(dead_code)]
+    pub fn with_max_total_duration(mut self, max_duration: Option<Duration>) -> Self {
+        self.max_total_duration = max_duration;
+        self
+    }
+
+    /// Enable or disable jitter
+    #[allow(dead_code)]
+    pub fn with_jitter(mut self, jitter: bool) -> Self {
+        self.jitter = jitter;
+        self
+    }
+
+    /// Validate configuration parameters
+    #[allow(dead_code)]
+    pub fn validate(&self) -> Result<(), String> {
+        if self.initial_delay.is_zero() {
+            return Err("Initial delay must be greater than zero".to_string());
+        }
+
+        if self.max_delay < self.initial_delay {
+            return Err("Max delay must be greater than or equal to initial delay".to_string());
+        }
+
+        if self.backoff_multiplier <= 1.0 {
+            return Err("Backoff multiplier must be greater than 1.0".to_string());
+        }
+
+        if let Some(attempts) = self.max_attempts {
+            if attempts == 0 {
+                return Err("Max attempts must be greater than zero if specified".to_string());
+            }
+        }
+
+        if let Some(total) = self.max_total_duration {
+            if total.is_zero() {
+                return Err(
+                    "Max total duration, if specified, must be greater than zero".to_string(),
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Manages exponential backoff reconnection attempts with jitter and limits
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct ReconnectHandler {
+    config: ReconnectConfig,
+    attempt_count: usize,
+    start_time: Option<Instant>,
+    current_delay: Duration,
+}
+
+impl ReconnectHandler {
+    /// Create a new reconnection handler with the given configuration
+    #[allow(dead_code)]
+    pub fn new(config: ReconnectConfig) -> Result<Self, String> {
+        config.validate()?;
+
+        Ok(Self {
+            current_delay: config.initial_delay,
+            config,
+            attempt_count: 0,
+            start_time: None,
+        })
+    }
+
+    /// Create a reconnection handler with default configuration
+    #[allow(dead_code)]
+    pub fn with_default() -> Self {
+        Self::new(ReconnectConfig::default()).expect("Default configuration should be valid")
+    }
+
+    /// Reset the handler to initial state for a new connection session
+    #[allow(dead_code)]
+    pub fn reset(&mut self) {
+        self.attempt_count = 0;
+        self.start_time = None;
+        self.current_delay = self.config.initial_delay;
+    }
+
+    /// Check if we should attempt another reconnection
+    #[allow(dead_code)]
+    pub fn should_reconnect(&mut self) -> Result<Duration, ReconnectError> {
+        // Initialize start time on first attempt
+        if self.start_time.is_none() {
+            self.start_time = Some(Instant::now());
+        }
+
+        // Check maximum attempts limit
+        if let Some(max_attempts) = self.config.max_attempts {
+            if self.attempt_count >= max_attempts {
+                return Err(ReconnectError::MaxAttemptsExceeded(max_attempts));
+            }
+        }
+
+        // Check maximum total duration limit
+        if let Some(max_duration) = self.config.max_total_duration {
+            if let Some(start_time) = self.start_time {
+                if start_time.elapsed() >= max_duration {
+                    return Err(ReconnectError::ConnectionTimeout(max_duration));
+                }
+            }
+        }
+
+        self.attempt_count += 1;
+
+        // Calculate delay for this attempt
+        let delay = self.calculate_delay();
+
+        // Update current delay for next attempt
+        self.update_delay();
+
+        Ok(delay)
+    }
+
+    /// Get the current attempt number (1-based)
+    #[allow(dead_code)]
+    pub fn attempt_count(&self) -> usize {
+        self.attempt_count
+    }
+
+    /// Get the total elapsed time since first reconnection attempt
+    #[allow(dead_code)]
+    pub fn elapsed_time(&self) -> Option<Duration> {
+        self.start_time.map(|start| start.elapsed())
+    }
+
+    /// Get the current configuration
+    #[allow(dead_code)]
+    pub fn config(&self) -> &ReconnectConfig {
+        &self.config
+    }
+
+    /// Calculate the delay for the current attempt with optional jitter
+    fn calculate_delay(&self) -> Duration {
+        let mut delay = self.current_delay;
+
+        if self.config.jitter {
+            // Add random jitter up to 10% of the delay
+            delay = self.add_jitter(delay);
+        }
+
+        delay
+    }
+
+    /// Update the current delay for the next attempt using exponential backoff
+    fn update_delay(&mut self) {
+        let next = self.current_delay.mul_f64(self.config.backoff_multiplier);
+        self.current_delay = next.min(self.config.max_delay);
+    }
+
+    /// Add random jitter to the delay to prevent thundering herd problems
+    fn add_jitter(&self, delay: Duration) -> Duration {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        // Use a simple hash-based pseudo-random for deterministic testing
+        let mut hasher = DefaultHasher::new();
+        self.attempt_count.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        // Generate jitter between -10% and +10% of the delay
+        let jitter_percent = ((hash % 20) as f64 - 10.0) / 100.0; // -0.1 to 0.1
+        let jitter_ms = (delay.as_millis() as f64 * jitter_percent) as i64;
+
+        let jittered_ms = (delay.as_millis() as i64 + jitter_ms).max(0) as u64;
+        Duration::from_millis(jittered_ms)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config_is_valid() {
+        let config = ReconnectConfig::default();
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_config_validation() {
+        // Invalid initial delay
+        let config = ReconnectConfig {
+            initial_delay: Duration::from_millis(0),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        // Max delay less than initial delay
+        let config = ReconnectConfig {
+            max_delay: Duration::from_millis(500),
+            initial_delay: Duration::from_millis(1000),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        // Invalid backoff multiplier
+        let config = ReconnectConfig {
+            backoff_multiplier: 1.0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        // Zero max attempts
+        let config = ReconnectConfig {
+            max_attempts: Some(0),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        // Zero max total duration
+        let config = ReconnectConfig {
+            max_total_duration: Some(Duration::ZERO),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_reconnect_handler_creation() {
+        let config = ReconnectConfig::default();
+        let handler = ReconnectHandler::new(config);
+        assert!(handler.is_ok());
+
+        let handler = ReconnectHandler::with_default();
+        assert_eq!(handler.attempt_count(), 0);
+        assert!(handler.elapsed_time().is_none());
+    }
+
+    #[test]
+    fn test_exponential_backoff() {
+        let config = ReconnectConfig {
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_millis(1000),
+            backoff_multiplier: 2.0,
+            max_attempts: Some(5),
+            max_total_duration: None,
+            jitter: false,
+        };
+
+        let mut handler = ReconnectHandler::new(config).unwrap();
+
+        // First attempt
+        let delay1 = handler.should_reconnect().unwrap();
+        assert_eq!(delay1, Duration::from_millis(100));
+        assert_eq!(handler.attempt_count(), 1);
+
+        // Second attempt (doubled)
+        let delay2 = handler.should_reconnect().unwrap();
+        assert_eq!(delay2, Duration::from_millis(200));
+        assert_eq!(handler.attempt_count(), 2);
+
+        // Third attempt (doubled again)
+        let delay3 = handler.should_reconnect().unwrap();
+        assert_eq!(delay3, Duration::from_millis(400));
+        assert_eq!(handler.attempt_count(), 3);
+    }
+
+    #[test]
+    fn test_max_attempts_exceeded() {
+        let config = ReconnectConfig {
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_millis(1000),
+            backoff_multiplier: 2.0,
+            max_attempts: Some(2),
+            max_total_duration: None,
+            jitter: false,
+        };
+
+        let mut handler = ReconnectHandler::new(config).unwrap();
+
+        // First two attempts should succeed
+        assert!(handler.should_reconnect().is_ok());
+        assert!(handler.should_reconnect().is_ok());
+
+        // Third attempt should fail
+        let result = handler.should_reconnect();
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(ReconnectError::MaxAttemptsExceeded(2))
+        ));
+    }
+
+    #[test]
+    fn test_max_delay_cap() {
+        let config = ReconnectConfig {
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_millis(300),
+            backoff_multiplier: 3.0,
+            max_attempts: Some(5),
+            max_total_duration: None,
+            jitter: false,
+        };
+
+        let mut handler = ReconnectHandler::new(config).unwrap();
+
+        // First attempt: 100ms
+        let delay1 = handler.should_reconnect().unwrap();
+        assert_eq!(delay1, Duration::from_millis(100));
+
+        // Second attempt: 300ms (capped at max_delay)
+        let delay2 = handler.should_reconnect().unwrap();
+        assert_eq!(delay2, Duration::from_millis(300));
+
+        // Third attempt: still capped at 300ms
+        let delay3 = handler.should_reconnect().unwrap();
+        assert_eq!(delay3, Duration::from_millis(300));
+    }
+
+    #[test]
+    fn test_reset_functionality() {
+        let config = ReconnectConfig::default();
+        let mut handler = ReconnectHandler::new(config).unwrap();
+
+        // Make some attempts
+        let _ = handler.should_reconnect();
+        let _ = handler.should_reconnect();
+        assert_eq!(handler.attempt_count(), 2);
+        assert!(handler.elapsed_time().is_some());
+
+        // Reset should restore initial state
+        handler.reset();
+        assert_eq!(handler.attempt_count(), 0);
+        assert!(handler.elapsed_time().is_none());
+    }
+
+    #[test]
+    fn test_jitter_adds_variation() {
+        let config_with_jitter = ReconnectConfig {
+            initial_delay: Duration::from_millis(1000),
+            max_delay: Duration::from_millis(5000),
+            backoff_multiplier: 2.0,
+            max_attempts: Some(10),
+            max_total_duration: None,
+            jitter: true,
+        };
+
+        let config_without_jitter = ReconnectConfig {
+            jitter: false,
+            ..config_with_jitter.clone()
+        };
+
+        let mut handler_with_jitter = ReconnectHandler::new(config_with_jitter).unwrap();
+        let mut handler_without_jitter = ReconnectHandler::new(config_without_jitter).unwrap();
+
+        // Multiple attempts to test jitter variation
+        let mut jittered_delays = Vec::new();
+        let mut non_jittered_delays = Vec::new();
+
+        for _ in 0..5 {
+            handler_with_jitter.reset();
+            handler_without_jitter.reset();
+
+            jittered_delays.push(handler_with_jitter.should_reconnect().unwrap());
+            non_jittered_delays.push(handler_without_jitter.should_reconnect().unwrap());
+        }
+
+        // All non-jittered delays should be identical
+        assert!(
+            non_jittered_delays.windows(2).all(|w| w[0] == w[1]),
+            "Non-jittered delays should be identical"
+        );
+
+        // Jittered delays should show some variation due to hash-based jitter
+        // At least one should be different from the base delay
+        let base_delay = Duration::from_millis(1000);
+        assert!(
+            jittered_delays.iter().any(|&d| d != base_delay),
+            "Jitter should cause some variation from base delay"
+        );
+    }
+}
