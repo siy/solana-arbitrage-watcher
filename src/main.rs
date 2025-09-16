@@ -1,5 +1,6 @@
 mod config;
 mod price;
+mod websocket;
 
 use clap::Parser;
 use config::{Config, RawConfig};
