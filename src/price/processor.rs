@@ -37,7 +37,11 @@ impl ValidatedPricePair {
     #[allow(dead_code)]
     pub fn new(solana_price: SourcePrice, binance_price: SourcePrice) -> Self {
         let price_spread = (solana_price.price - binance_price.price).abs();
-        let price_spread_percentage = (price_spread / binance_price.price) * 100.0;
+        let price_spread_percentage = if binance_price.price > 0.0 {
+            (price_spread / binance_price.price) * 100.0
+        } else {
+            0.0
+        };
 
         Self {
             solana_price,
@@ -93,6 +97,8 @@ pub struct PriceProcessor {
     price_cache: Arc<PriceCache>,
     max_price_age: MaxPriceAge,
     validation_enabled: bool,
+    min_price_bound: f64,
+    max_price_bound: f64,
 }
 
 impl PriceProcessor {
@@ -103,6 +109,8 @@ impl PriceProcessor {
             price_cache,
             max_price_age: config.max_price_age_ms,
             validation_enabled: true,
+            min_price_bound: 1.0,   // Default SOL minimum price
+            max_price_bound: 10000.0, // Default SOL maximum price
         }
     }
 
@@ -117,6 +125,8 @@ impl PriceProcessor {
             price_cache,
             max_price_age,
             validation_enabled,
+            min_price_bound: 1.0,
+            max_price_bound: 10000.0,
         }
     }
 
@@ -211,7 +221,7 @@ impl PriceProcessor {
 
         // Additional validation: reasonable price ranges for SOL
         // This prevents obviously incorrect data from being processed
-        if price.price < 1.0 || price.price > 10000.0 {
+        if price.price < self.min_price_bound || price.price > self.max_price_bound {
             return Err(ProcessorError::InvalidPrice { price: price.price });
         }
 
@@ -234,6 +244,13 @@ impl PriceProcessor {
     #[allow(dead_code)]
     pub fn set_validation_enabled(&mut self, enabled: bool) {
         self.validation_enabled = enabled;
+    }
+
+    /// Set price bounds for validation
+    #[allow(dead_code)]
+    pub fn set_price_bounds(&mut self, min_price: f64, max_price: f64) {
+        self.min_price_bound = min_price;
+        self.max_price_bound = max_price;
     }
 }
 

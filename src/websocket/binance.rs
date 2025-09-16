@@ -9,6 +9,7 @@ use std::time::Duration;
 static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
 use thiserror::Error;
 use tokio::time::{sleep, timeout};
+use log::{error, warn, info};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
 
@@ -28,6 +29,8 @@ pub enum BinanceError {
     ReconnectFailed(#[from] ReconnectError),
     #[error("Invalid trading pair: {0:?}")]
     InvalidTradingPair(TradingPair),
+    #[error("Invalid price data: {0}")]
+    InvalidPrice(String),
 }
 
 /// Binance WebSocket subscription message for ticker streams
@@ -147,12 +150,12 @@ impl BinanceClient {
                     break;
                 }
                 Err(e) => {
-                    eprintln!("Binance WebSocket error: {}", e);
+                    error!("Binance WebSocket error: {}", e);
 
                     // Determine if we should reconnect
                     match self.reconnect_handler.should_reconnect() {
                         Ok(delay) => {
-                            eprintln!(
+                            warn!(
                                 "Reconnecting to Binance in {:?} (attempt {})",
                                 delay,
                                 self.reconnect_handler.attempt_count()
@@ -160,7 +163,7 @@ impl BinanceClient {
                             sleep(delay).await;
                         }
                         Err(reconnect_error) => {
-                            eprintln!("Giving up on Binance reconnection: {}", reconnect_error);
+                            error!("Giving up on Binance reconnection: {}", reconnect_error);
                             return Err(BinanceError::ReconnectFailed(reconnect_error));
                         }
                     }
@@ -210,7 +213,7 @@ impl BinanceClient {
                         .map_err(|e| BinanceError::ConnectionError(Box::new(e)))?;
                 }
                 Message::Close(_) => {
-                    eprintln!("Binance WebSocket connection closed");
+                    info!("Binance WebSocket connection closed");
                     break;
                 }
                 _ => {}
@@ -240,20 +243,32 @@ impl BinanceClient {
 
     /// Parse ticker message and convert to PriceUpdate
     fn parse_ticker_message(&self, text: &str) -> Result<PriceUpdate, BinanceError> {
-        let stream_data: StreamData = serde_json::from_str(text)?;
+        // Try parsing as wrapped stream data first
+        if let Ok(stream_data) = serde_json::from_str::<StreamData>(text) {
+            let price: f64 = stream_data.data.price.parse()
+                .map_err(|_| BinanceError::InvalidPrice(stream_data.data.price.clone()))?;
+            return Ok(PriceUpdate::new(
+                PriceSource::Binance,
+                self.trading_pair,
+                price,
+            ));
+        }
 
-        let price: f64 = stream_data.data.price.parse().map_err(|_| {
-            BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid price format",
-            )))
-        })?;
+        // Try parsing as direct ticker data
+        if let Ok(ticker_data) = serde_json::from_str::<TickerData>(text) {
+            let price: f64 = ticker_data.price.parse()
+                .map_err(|_| BinanceError::InvalidPrice(ticker_data.price.clone()))?;
+            return Ok(PriceUpdate::new(
+                PriceSource::Binance,
+                self.trading_pair,
+                price,
+            ));
+        }
 
-        Ok(PriceUpdate::new(
-            PriceSource::Binance,
-            self.trading_pair,
-            price,
-        ))
+        Err(BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Unable to parse as either wrapped or direct ticker data",
+        ))))
     }
 
     /// Convert TradingPair to Binance symbol format
@@ -398,9 +413,13 @@ mod tests {
             "E": 1699123456789
         }"#;
 
-        // This should fail since we expect wrapped format
+        // This should now succeed as we support direct ticker format
         let result = client.parse_ticker_message(direct_ticker_json);
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        let price_update = result.unwrap();
+        assert_eq!(price_update.source, PriceSource::Binance);
+        assert_eq!(price_update.pair, TradingPair::SolUsdt);
+        assert_eq!(price_update.price, 189.75);
 
         // Test the expected wrapped format
         let wrapped_ticker_json = r#"{
