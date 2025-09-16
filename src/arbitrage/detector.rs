@@ -8,6 +8,7 @@ use tokio::time::{interval, sleep, Instant};
 
 /// Errors that can occur during arbitrage detection
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum DetectorError {
     #[error("Price processor error: {0}")]
     ProcessorError(#[from] ProcessorError),
@@ -23,6 +24,7 @@ pub enum DetectorError {
 
 /// Statistics about arbitrage detection
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct DetectionStats {
     /// Total number of price checks performed
     pub total_checks: u64,
@@ -56,6 +58,7 @@ impl Default for DetectionStats {
 
 impl DetectionStats {
     /// Update stats with a new price check
+    #[allow(dead_code)]
     pub fn update_check(&mut self, spread_percentage: f64) {
         self.total_checks += 1;
         self.last_check = Some(Instant::now());
@@ -71,6 +74,7 @@ impl DetectionStats {
     }
 
     /// Update stats with a new opportunity
+    #[allow(dead_code)]
     pub fn update_opportunity(
         &mut self,
         opportunity: &ArbitrageOpportunity,
@@ -93,11 +97,13 @@ impl DetectionStats {
     }
 
     /// Update uptime
+    #[allow(dead_code)]
     pub fn update_uptime(&mut self, start_time: Instant) {
         self.uptime = start_time.elapsed();
     }
 
     /// Get success rate (opportunities found / total checks)
+    #[allow(dead_code)]
     pub fn success_rate(&self) -> f64 {
         if self.total_checks == 0 {
             0.0
@@ -107,6 +113,7 @@ impl DetectionStats {
     }
 
     /// Get threshold success rate (threshold opportunities / total checks)
+    #[allow(dead_code)]
     pub fn threshold_success_rate(&self) -> f64 {
         if self.total_checks == 0 {
             0.0
@@ -117,6 +124,7 @@ impl DetectionStats {
 }
 
 /// Arbitrage detector that monitors prices and identifies opportunities
+#[allow(dead_code)]
 pub struct ArbitrageDetector {
     price_processor: PriceProcessor,
     fee_calculator: FeeCalculator,
@@ -129,6 +137,7 @@ pub struct ArbitrageDetector {
 
 impl ArbitrageDetector {
     /// Create new arbitrage detector
+    #[allow(dead_code)]
     pub fn new(
         price_cache: Arc<PriceCache>,
         config: &Config,
@@ -155,6 +164,7 @@ impl ArbitrageDetector {
     }
 
     /// Start continuous arbitrage detection
+    #[allow(dead_code)]
     pub async fn start_detection<F>(&mut self, mut callback: F) -> Result<(), DetectorError>
     where
         F: FnMut(&ArbitrageOpportunity) + Send,
@@ -211,6 +221,7 @@ impl ArbitrageDetector {
     }
 
     /// Check for arbitrage opportunities once
+    #[allow(dead_code)]
     pub async fn check_for_opportunities(
         &mut self,
     ) -> Result<Option<ArbitrageOpportunity>, DetectorError> {
@@ -229,6 +240,7 @@ impl ArbitrageDetector {
     }
 
     /// Wait for an arbitrage opportunity with timeout
+    #[allow(dead_code)]
     pub async fn wait_for_opportunity(
         &mut self,
         timeout: Duration,
@@ -262,6 +274,7 @@ impl ArbitrageDetector {
     }
 
     /// Get current detection statistics
+    #[allow(dead_code)]
     pub fn stats(&self) -> &DetectionStats {
         &self.stats
     }
@@ -291,6 +304,7 @@ impl ArbitrageDetector {
     }
 
     /// Check if fresh prices are available
+    #[allow(dead_code)]
     pub fn has_fresh_prices(&self) -> bool {
         self.price_processor.has_fresh_prices()
     }

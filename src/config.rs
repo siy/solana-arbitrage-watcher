@@ -43,7 +43,7 @@ impl ProfitThreshold {
     /// Create new ProfitThreshold for testing
     #[cfg(test)]
     pub fn new(value: f64) -> Result<Self, ConfigError> {
-        if value >= 0.0 && value <= 100.0 {
+        if (0.0..=100.0).contains(&value) {
             Ok(Self(value))
         } else {
             Err(ConfigError::InvalidThreshold(value))

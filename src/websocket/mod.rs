@@ -9,12 +9,13 @@ use thiserror::Error;
 use tokio::task::JoinHandle;
 
 pub use binance::{BinanceClient, BinanceConfig, BinanceError};
-pub use reconnect::{ReconnectConfig, ReconnectError, ReconnectHandler};
+// ReconnectHandler is available but not currently used in public API
 #[allow(unused_imports)]
 pub use solana::{SolanaClient, SolanaConfig, SolanaError};
 
 /// Errors that can occur in the WebSocket connection manager
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum ConnectionManagerError {
     #[error("Binance connection error: {0}")]
     BinanceError(#[from] BinanceError),
@@ -27,6 +28,7 @@ pub enum ConnectionManagerError {
 }
 
 /// WebSocket connection manager that coordinates multiple price sources
+#[allow(dead_code)]
 pub struct ConnectionManager {
     binance_client: BinanceClient,
     solana_client: SolanaClient,
@@ -36,6 +38,7 @@ pub struct ConnectionManager {
 
 impl ConnectionManager {
     /// Create new connection manager from configuration
+    #[allow(dead_code)]
     pub fn new(config: &Config) -> Result<Self, ConnectionManagerError> {
         // Create Binance client with default configuration
         let binance_client = BinanceClient::with_default(config.pair)?;
@@ -55,6 +58,7 @@ impl ConnectionManager {
     }
 
     /// Start all WebSocket connections and return price cache
+    #[allow(dead_code)]
     pub async fn start(mut self) -> Result<Arc<PriceCache>, ConnectionManagerError> {
         let price_cache = Arc::clone(&self.price_cache);
 

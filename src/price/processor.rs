@@ -3,10 +3,14 @@ use crate::price::{PriceCache, PriceSource, SourcePrice};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
+
+#[cfg(test)]
+use tokio::time::sleep;
 
 /// Errors that can occur during price processing
 #[derive(Debug, Error)]
+#[allow(dead_code)]
 pub enum ProcessorError {
     #[error("No fresh price data available")]
     NoFreshData,
@@ -20,6 +24,7 @@ pub enum ProcessorError {
 
 /// Validated price pair with freshness guarantee
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ValidatedPricePair {
     pub solana_price: SourcePrice,
     pub binance_price: SourcePrice,
@@ -29,6 +34,7 @@ pub struct ValidatedPricePair {
 
 impl ValidatedPricePair {
     /// Create new validated price pair
+    #[allow(dead_code)]
     pub fn new(solana_price: SourcePrice, binance_price: SourcePrice) -> Self {
         let price_spread = (solana_price.price - binance_price.price).abs();
         let price_spread_percentage = (price_spread / binance_price.price) * 100.0;
@@ -42,6 +48,7 @@ impl ValidatedPricePair {
     }
 
     /// Get the higher price source
+    #[allow(dead_code)]
     pub fn higher_price_source(&self) -> PriceSource {
         if self.solana_price.price > self.binance_price.price {
             PriceSource::Solana
@@ -51,6 +58,7 @@ impl ValidatedPricePair {
     }
 
     /// Get the lower price source
+    #[allow(dead_code)]
     pub fn lower_price_source(&self) -> PriceSource {
         if self.solana_price.price < self.binance_price.price {
             PriceSource::Solana
@@ -68,11 +76,13 @@ impl ValidatedPricePair {
     }
 
     /// Check if prices are inverted (Solana higher than Binance)
+    #[allow(dead_code)]
     pub fn is_inverted(&self) -> bool {
         self.solana_price.price > self.binance_price.price
     }
 
     /// Get maximum age of either price
+    #[allow(dead_code)]
     pub fn max_age_ms(&self) -> u64 {
         self.solana_price.age_ms().max(self.binance_price.age_ms())
     }
@@ -87,6 +97,7 @@ pub struct PriceProcessor {
 
 impl PriceProcessor {
     /// Create new price processor
+    #[allow(dead_code)]
     pub fn new(price_cache: Arc<PriceCache>, config: &Config) -> Self {
         Self {
             price_cache,
@@ -130,6 +141,7 @@ impl PriceProcessor {
     }
 
     /// Wait for fresh price data to become available
+    #[allow(dead_code)]
     pub async fn wait_for_fresh_prices(
         &self,
         timeout: Duration,
@@ -166,6 +178,7 @@ impl PriceProcessor {
     }
 
     /// Check if fresh prices are available without validation
+    #[allow(dead_code)]
     pub fn has_fresh_prices(&self) -> bool {
         self.price_cache
             .has_fresh_prices(self.max_price_age.value())

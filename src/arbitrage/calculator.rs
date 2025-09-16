@@ -4,6 +4,8 @@ use thiserror::Error;
 
 /// Errors that can occur during fee calculation
 #[derive(Debug, Error)]
+#[allow(dead_code)]
+#[allow(clippy::enum_variant_names)]
 pub enum CalculatorError {
     #[error("Invalid trading pair for fee calculation")]
     InvalidTradingPair,
@@ -17,6 +19,7 @@ pub enum CalculatorError {
 
 /// Trading fees for different platforms and operations
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TradingFees {
     /// Binance spot trading fee (percentage)
     pub binance_spot_fee: f64,
@@ -41,6 +44,7 @@ impl Default for TradingFees {
 
 impl TradingFees {
     /// Create custom trading fees
+    #[allow(dead_code)]
     pub fn new(
         binance_spot_fee: f64,
         solana_dex_fee: f64,
@@ -53,13 +57,13 @@ impl TradingFees {
             ("solana_dex_fee", solana_dex_fee),
             ("transfer_fee", transfer_fee),
         ] {
-            if fee < 0.0 || fee > 100.0 {
+            if !(0.0..=100.0).contains(&fee) {
                 return Err(CalculatorError::InvalidFeePercentage(fee));
             }
         }
 
         // Validate gas fee (should be reasonable for SOL)
-        if solana_gas_fee < 0.0 || solana_gas_fee > 1.0 {
+        if !(0.0..=1.0).contains(&solana_gas_fee) {
             return Err(CalculatorError::InvalidFeePercentage(solana_gas_fee));
         }
 
@@ -72,6 +76,7 @@ impl TradingFees {
     }
 
     /// Get trading fee for specific source
+    #[allow(dead_code)]
     pub fn get_trading_fee(&self, source: PriceSource) -> f64 {
         match source {
             PriceSource::Binance => self.binance_spot_fee,
@@ -82,6 +87,7 @@ impl TradingFees {
 
 /// Result of arbitrage opportunity calculation
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ArbitrageOpportunity {
     /// Buy from this source (lower price)
     pub buy_source: PriceSource,
@@ -109,16 +115,19 @@ pub struct ArbitrageOpportunity {
 
 impl ArbitrageOpportunity {
     /// Check if this opportunity exceeds the profit threshold
+    #[allow(dead_code)]
     pub fn exceeds_threshold(&self, threshold: &ProfitThreshold) -> bool {
         self.profit_percentage >= threshold.value()
     }
 
     /// Check if the opportunity is profitable after all fees
+    #[allow(dead_code)]
     pub fn is_profitable(&self) -> bool {
         self.net_profit_per_unit > 0.0
     }
 
     /// Calculate total profit for a specific trade amount
+    #[allow(dead_code)]
     pub fn calculate_total_profit(&self, amount: f64) -> Result<f64, CalculatorError> {
         if amount <= 0.0 {
             return Err(CalculatorError::InvalidTradeAmount(amount));
@@ -127,6 +136,7 @@ impl ArbitrageOpportunity {
     }
 
     /// Get a formatted description of the arbitrage opportunity
+    #[allow(dead_code)]
     pub fn description(&self) -> String {
         format!(
             "Buy {} at {} ({}) -> Sell at {} ({}): {:.2}% profit",
@@ -149,6 +159,7 @@ impl ArbitrageOpportunity {
 }
 
 /// Fee calculator for arbitrage opportunities
+#[allow(dead_code)]
 pub struct FeeCalculator {
     trading_fees: TradingFees,
     default_trade_amount: f64,
@@ -165,6 +176,7 @@ impl Default for FeeCalculator {
 
 impl FeeCalculator {
     /// Create new fee calculator with custom fees
+    #[allow(dead_code)]
     pub fn new(
         trading_fees: TradingFees,
         default_trade_amount: f64,
@@ -180,6 +192,7 @@ impl FeeCalculator {
     }
 
     /// Calculate arbitrage opportunity from validated price pair
+    #[allow(dead_code)]
     pub fn calculate_opportunity(
         &self,
         prices: &ValidatedPricePair,
