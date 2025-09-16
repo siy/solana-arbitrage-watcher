@@ -125,6 +125,7 @@ impl PriceSource {
 #[derive(Debug, Clone)]
 pub struct SourcePrice {
     pub price: f64,
+    #[allow(dead_code)] // Used for debugging and future features
     pub source: PriceSource,
     pub timestamp: SystemTime,
 }

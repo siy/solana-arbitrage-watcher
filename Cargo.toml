@@ -14,4 +14,5 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net",
 tokio-tungstenite = "0.20"
 futures-util = "0.3"
 log = "0.4"
+env_logger = "0.11"
 chrono = { version = "0.4", features = ["serde"] }

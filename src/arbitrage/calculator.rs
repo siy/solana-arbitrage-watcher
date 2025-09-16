@@ -151,10 +151,7 @@ impl ArbitrageOpportunity {
 
     /// Get trading pair symbol as string
     fn trading_pair_symbol(&self) -> &'static str {
-        match self.trading_pair {
-            TradingPair::SolUsdt => "SOL/USDT",
-            TradingPair::SolUsdc => "SOL/USDC",
-        }
+        crate::util::format_trading_pair(self.trading_pair)
     }
 }
 

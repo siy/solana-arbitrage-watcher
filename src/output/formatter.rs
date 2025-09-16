@@ -1,24 +1,20 @@
 use crate::arbitrage::calculator::ArbitrageOpportunity;
 use crate::config::TradingPair;
-use crate::price::{PriceSource, ValidatedPricePair};
+use crate::price::ValidatedPricePair;
+use crate::util::{format_price_source, format_trading_pair, round_to_precision};
 use serde_json::json;
 use std::fmt;
 
 /// Output format options for displaying arbitrage data
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, clap::ValueEnum, Default)]
 pub enum OutputFormat {
     /// Human-readable table format
+    #[default]
     Table,
     /// JSON format for machine processing
     Json,
     /// Compact single-line format
     Compact,
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        OutputFormat::Table
-    }
 }
 
 /// Formatter for displaying arbitrage opportunities and price data
@@ -39,6 +35,7 @@ impl OutputFormatter {
     }
 
     /// Create formatter with custom settings
+    #[allow(dead_code)] // Future feature: configurable settings
     pub fn with_settings(format: OutputFormat, show_timestamps: bool, precision: usize) -> Self {
         Self {
             format,
@@ -57,6 +54,7 @@ impl OutputFormatter {
     }
 
     /// Format price pair information
+    #[allow(dead_code)] // Future feature: real-time price display
     pub fn format_price_pair(&self, prices: &ValidatedPricePair, pair: TradingPair) -> String {
         match self.format {
             OutputFormat::Table => self.format_price_pair_table(prices, pair),
@@ -69,8 +67,8 @@ impl OutputFormatter {
     fn format_opportunity_table(&self, opportunity: &ArbitrageOpportunity) -> String {
         let mut output = String::new();
 
-        output.push_str("🚨 ARBITRAGE OPPORTUNITY DETECTED\n");
-        output.push_str("=" .repeat(50).as_str());
+        output.push_str("ARBITRAGE OPPORTUNITY DETECTED\n");
+        output.push_str("=".repeat(50).as_str());
         output.push('\n');
 
         output.push_str(&format!(
@@ -113,7 +111,10 @@ impl OutputFormatter {
         output.push_str(&format!(
             "Recommended Amount: {:.prec$} {}\n",
             opportunity.recommended_amount,
-            format_trading_pair(opportunity.trading_pair).split('/').next().unwrap_or("SOL"),
+            format_trading_pair(opportunity.trading_pair)
+                .split('/')
+                .next()
+                .unwrap_or("SOL"),
             prec = self.precision
         ));
 
@@ -130,7 +131,7 @@ impl OutputFormatter {
             ));
         }
 
-        output.push_str("=" .repeat(50).as_str());
+        output.push_str("=".repeat(50).as_str());
         output
     }
 
@@ -161,7 +162,7 @@ impl OutputFormatter {
     /// Format arbitrage opportunity in compact format
     fn format_opportunity_compact(&self, opportunity: &ArbitrageOpportunity) -> String {
         format!(
-            "ARBITRAGE {}: Buy {} @ ${:.prec$} → Sell {} @ ${:.prec$} | Profit: {:.2}% (${:.prec$} total)",
+            "ARBITRAGE {}: Buy {} @ ${:.prec$} -> Sell {} @ ${:.prec$} | Profit: {:.2}% (${:.prec$} total)",
             format_trading_pair(opportunity.trading_pair),
             format_price_source(opportunity.buy_source),
             opportunity.buy_price,
@@ -177,7 +178,7 @@ impl OutputFormatter {
     fn format_price_pair_table(&self, prices: &ValidatedPricePair, pair: TradingPair) -> String {
         let mut output = String::new();
 
-        output.push_str(&format!("📈 {} PRICE UPDATE\n", format_trading_pair(pair)));
+        output.push_str(&format!("{} PRICE UPDATE\n", format_trading_pair(pair)));
         output.push_str("-".repeat(30).as_str());
         output.push('\n');
 
@@ -249,7 +250,7 @@ impl OutputFormatter {
     pub fn format_no_opportunities(&self, pair: TradingPair) -> String {
         match self.format {
             OutputFormat::Table => format!(
-                "ℹ️  No arbitrage opportunities found for {}\n{}",
+                "No arbitrage opportunities found for {}\n{}",
                 format_trading_pair(pair),
                 "-".repeat(40)
             ),
@@ -257,23 +258,22 @@ impl OutputFormatter {
                 "type": "no_opportunities",
                 "trading_pair": format_trading_pair(pair).to_lowercase(),
                 "timestamp": chrono::Utc::now().to_rfc3339()
-            }).to_string(),
-            OutputFormat::Compact => format!(
-                "No opportunities: {}",
-                format_trading_pair(pair)
-            ),
+            })
+            .to_string(),
+            OutputFormat::Compact => format!("No opportunities: {}", format_trading_pair(pair)),
         }
     }
 
     /// Format error message
     pub fn format_error(&self, error: &str) -> String {
         match self.format {
-            OutputFormat::Table => format!("❌ ERROR: {}\n{}", error, "!".repeat(error.len() + 9)),
+            OutputFormat::Table => format!("ERROR: {}\n{}", error, "!".repeat(error.len() + 7)),
             OutputFormat::Json => json!({
                 "type": "error",
                 "message": error,
                 "timestamp": chrono::Utc::now().to_rfc3339()
-            }).to_string(),
+            })
+            .to_string(),
             OutputFormat::Compact => format!("ERROR: {}", error),
         }
     }
@@ -283,28 +283,6 @@ impl Default for OutputFormatter {
     fn default() -> Self {
         Self::new(OutputFormat::Table)
     }
-}
-
-/// Helper function to format price source
-fn format_price_source(source: PriceSource) -> &'static str {
-    match source {
-        PriceSource::Solana => "Solana",
-        PriceSource::Binance => "Binance",
-    }
-}
-
-/// Helper function to format trading pair
-fn format_trading_pair(pair: TradingPair) -> &'static str {
-    match pair {
-        TradingPair::SolUsdt => "SOL/USDT",
-        TradingPair::SolUsdc => "SOL/USDC",
-    }
-}
-
-/// Helper function to round to specified precision
-fn round_to_precision(value: f64, precision: usize) -> f64 {
-    let multiplier = 10_f64.powi(precision as i32);
-    (value * multiplier).round() / multiplier
 }
 
 impl fmt::Display for OutputFormat {

@@ -8,6 +8,13 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::task::JoinHandle;
 
+/// Type alias for complex startup return type
+type StartupResult = (
+    Arc<PriceCache>,
+    JoinHandle<Result<(), BinanceError>>,
+    JoinHandle<Result<(), SolanaError>>,
+);
+
 pub use binance::{BinanceClient, BinanceConfig, BinanceError};
 // ReconnectHandler is available but not currently used in public API
 #[allow(unused_imports)]
@@ -57,9 +64,9 @@ impl ConnectionManager {
         })
     }
 
-    /// Start all WebSocket connections and return price cache
+    /// Start all WebSocket connections and return price cache and shutdown handles
     #[allow(dead_code)]
-    pub async fn start(mut self) -> Result<Arc<PriceCache>, ConnectionManagerError> {
+    pub fn start_with_handles(mut self) -> StartupResult {
         let price_cache = Arc::clone(&self.price_cache);
 
         // Start Binance connection
@@ -82,6 +89,14 @@ impl ConnectionManager {
                 .await
         });
 
+        (price_cache, binance_handle, solana_handle)
+    }
+
+    /// Start all WebSocket connections and return price cache (legacy method)
+    #[allow(dead_code)]
+    pub async fn start(self) -> Result<Arc<PriceCache>, ConnectionManagerError> {
+        let (price_cache, binance_handle, solana_handle) = self.start_with_handles();
+
         // Monitor connections
         tokio::spawn(async move {
             let binance_result = binance_handle.await;
@@ -89,19 +104,19 @@ impl ConnectionManager {
 
             match (binance_result, solana_result) {
                 (Ok(Ok(())), Ok(Ok(()))) => {
-                    println!("Both connections completed successfully");
+                    log::info!("Both connections completed successfully");
                 }
                 (Ok(Err(e)), _) => {
-                    eprintln!("Binance connection failed: {}", e);
+                    log::error!("Binance connection failed: {}", e);
                 }
                 (_, Ok(Err(e))) => {
-                    eprintln!("Solana connection failed: {}", e);
+                    log::error!("Solana connection failed: {}", e);
                 }
                 (Err(e), _) => {
-                    eprintln!("Binance task panicked: {}", e);
+                    log::error!("Binance task panicked: {}", e);
                 }
                 (_, Err(e)) => {
-                    eprintln!("Solana task panicked: {}", e);
+                    log::error!("Solana task panicked: {}", e);
                 }
             }
         });
@@ -152,6 +167,9 @@ mod tests {
             threshold: 0.5,
             max_price_age_ms: 5000,
             rpc_url: None,
+            output_format: crate::output::OutputFormat::Table,
+            min_price: 1.0,
+            max_price: 10000.0,
         };
         Config::new(&raw).unwrap()
     }

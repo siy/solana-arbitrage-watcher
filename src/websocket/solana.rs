@@ -225,11 +225,11 @@ impl SolanaClient {
                     break;
                 }
                 Err(e) => {
-                    eprintln!("Solana WebSocket error: {}", e);
+                    log::error!("Solana WebSocket error: {}", e);
 
                     // Try next provider if available
                     if self.try_next_provider() {
-                        eprintln!(
+                        log::info!(
                             "Switching to provider: {}",
                             self.get_current_provider().name
                         );
@@ -239,7 +239,7 @@ impl SolanaClient {
                     // Determine if we should reconnect
                     match self.reconnect_handler.should_reconnect() {
                         Ok(delay) => {
-                            eprintln!(
+                            log::warn!(
                                 "Reconnecting to Solana in {:?} (attempt {})",
                                 delay,
                                 self.reconnect_handler.attempt_count()
@@ -249,7 +249,7 @@ impl SolanaClient {
                             self.current_provider_index = 0;
                         }
                         Err(reconnect_error) => {
-                            eprintln!("Giving up on Solana reconnection: {}", reconnect_error);
+                            log::error!("Giving up on Solana reconnection: {}", reconnect_error);
                             return Err(SolanaError::ReconnectFailed(reconnect_error));
                         }
                     }
@@ -269,7 +269,7 @@ impl SolanaClient {
         let provider = self.get_current_provider();
         let url = &provider.websocket_url;
 
-        eprintln!("Connecting to Solana via: {}", provider.name);
+        log::info!("Connecting to Solana via: {}", provider.name);
 
         // Connect with timeout
         let (ws_stream, _) = timeout(self.config.connection_timeout, connect_async(url))
@@ -302,7 +302,7 @@ impl SolanaClient {
                         .map_err(|e| SolanaError::ConnectionError(Box::new(e)))?;
                 }
                 Message::Close(_) => {
-                    eprintln!("Solana WebSocket connection closed");
+                    log::info!("Solana WebSocket connection closed");
                     break;
                 }
                 _ => {}

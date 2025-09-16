@@ -1,3 +1,4 @@
+use crate::output::OutputFormat;
 use clap::Parser;
 use url::Url;
 
@@ -20,6 +21,18 @@ pub struct RawConfig {
     /// Solana RPC WebSocket URL
     #[arg(long, env = "SOLANA_RPC_URL")]
     pub rpc_url: Option<Url>,
+
+    /// Output format for displaying results
+    #[arg(long, value_enum, default_value = "table")]
+    pub output_format: OutputFormat,
+
+    /// Minimum valid price for SOL (default: 1.0)
+    #[arg(long, default_value = "1.0")]
+    pub min_price: f64,
+
+    /// Maximum valid price for SOL (default: 10000.0)
+    #[arg(long, default_value = "10000.0")]
+    pub max_price: f64,
 }
 
 /// Validated application configuration (always valid)
@@ -29,6 +42,36 @@ pub struct Config {
     pub threshold: ProfitThreshold,
     pub max_price_age_ms: MaxPriceAge,
     pub rpc_providers: Vec<RpcProvider>,
+    pub output_format: OutputFormat,
+    pub price_bounds: PriceBounds,
+}
+
+/// Validated price bounds for validation
+#[derive(Debug, Clone, Copy)]
+pub struct PriceBounds {
+    pub min_price: f64,
+    pub max_price: f64,
+}
+
+impl PriceBounds {
+    pub fn new(min_price: f64, max_price: f64) -> Result<Self, ConfigError> {
+        if min_price <= 0.0 {
+            return Err(ConfigError::PriceBound(format!(
+                "Minimum price must be positive, got: {}",
+                min_price
+            )));
+        }
+        if max_price <= min_price {
+            return Err(ConfigError::PriceBound(format!(
+                "Maximum price ({}) must be greater than minimum price ({})",
+                max_price, min_price
+            )));
+        }
+        Ok(Self {
+            min_price,
+            max_price,
+        })
+    }
 }
 
 /// Validated profit threshold percentage
@@ -46,7 +89,7 @@ impl ProfitThreshold {
         if (0.0..=100.0).contains(&value) {
             Ok(Self(value))
         } else {
-            Err(ConfigError::InvalidThreshold(value))
+            Err(ConfigError::Threshold(value))
         }
     }
 }
@@ -95,7 +138,7 @@ impl Config {
         let threshold = if raw.threshold >= 0.0 && raw.threshold <= 100.0 {
             Some(ProfitThreshold(raw.threshold))
         } else {
-            errors.push(ConfigError::InvalidThreshold(raw.threshold));
+            errors.push(ConfigError::Threshold(raw.threshold));
             None
         };
 
@@ -103,8 +146,17 @@ impl Config {
         let max_price_age_ms = if raw.max_price_age_ms >= 100 && raw.max_price_age_ms <= 60000 {
             Some(MaxPriceAge(raw.max_price_age_ms))
         } else {
-            errors.push(ConfigError::InvalidMaxPriceAge(raw.max_price_age_ms));
+            errors.push(ConfigError::MaxPriceAge(raw.max_price_age_ms));
             None
+        };
+
+        // Validate price bounds
+        let price_bounds = match PriceBounds::new(raw.min_price, raw.max_price) {
+            Ok(bounds) => Some(bounds),
+            Err(e) => {
+                errors.push(e);
+                None
+            }
         };
 
         // Create RPC providers (no validation needed for URLs since clap already parsed them)
@@ -120,6 +172,8 @@ impl Config {
             threshold: threshold.unwrap(), // Safe because we checked for errors above
             max_price_age_ms: max_price_age_ms.unwrap(), // Safe because we checked for errors above
             rpc_providers,
+            output_format: raw.output_format,
+            price_bounds: price_bounds.unwrap(), // Safe because we checked for errors above
         })
     }
 
@@ -174,7 +228,9 @@ pub struct ConfigErrors {
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("Invalid threshold: {0}. Must be between 0.0 and 100.0")]
-    InvalidThreshold(f64),
+    Threshold(f64),
     #[error("Invalid max price age: {0}ms. Must be between 100 and 60000 milliseconds")]
-    InvalidMaxPriceAge(u64),
+    MaxPriceAge(u64),
+    #[error("Invalid price bound: {0}")]
+    PriceBound(String),
 }

@@ -330,6 +330,9 @@ mod tests {
             threshold: 1.0, // 1% threshold
             max_price_age_ms: 5000,
             rpc_url: None,
+            output_format: crate::output::OutputFormat::Table,
+            min_price: 1.0,
+            max_price: 10000.0,
         };
         Config::new(&raw).unwrap()
     }
@@ -432,6 +435,9 @@ mod tests {
             threshold: 0.01, // Very low threshold (0.01%)
             max_price_age_ms: 5000,
             rpc_url: None,
+            output_format: crate::output::OutputFormat::Table,
+            min_price: 1.0,
+            max_price: 10000.0,
         };
         let config = Config::new(&raw).unwrap();
         let cache = create_test_price_cache_with_arbitrage(); // Pre-populated cache
