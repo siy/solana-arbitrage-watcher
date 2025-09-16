@@ -3,7 +3,10 @@ use crate::price::{PriceSource, PriceUpdate};
 use crate::websocket::reconnect::{ReconnectConfig, ReconnectError, ReconnectHandler};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
+
+static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
 use thiserror::Error;
 use tokio::time::{sleep, timeout};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
@@ -231,7 +234,7 @@ impl BinanceClient {
         Ok(SubscribeMessage {
             method: "SUBSCRIBE".to_string(),
             params: vec![stream],
-            id: 1,
+            id: NEXT_SUB_ID.fetch_add(1, Ordering::Relaxed),
         })
     }
 
@@ -258,6 +261,8 @@ impl BinanceClient {
         match self.trading_pair {
             TradingPair::SolUsdt => Ok("SOLUSDT".to_string()),
             TradingPair::SolUsdc => Ok("SOLUSDC".to_string()),
+            // Future trading pairs should be added here
+            // _ => Err(BinanceError::InvalidTradingPair(self.trading_pair)),
         }
     }
 
@@ -380,5 +385,36 @@ mod tests {
 
         let result = client.parse_ticker_message(invalid_json);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_direct_ticker_message_parsing() {
+        let client = BinanceClient::with_default(TradingPair::SolUsdt).unwrap();
+
+        // Test direct ticker payload (no wrapper)
+        let direct_ticker_json = r#"{
+            "s": "SOLUSDT",
+            "c": "189.75",
+            "E": 1699123456789
+        }"#;
+
+        // This should fail since we expect wrapped format
+        let result = client.parse_ticker_message(direct_ticker_json);
+        assert!(result.is_err());
+
+        // Test the expected wrapped format
+        let wrapped_ticker_json = r#"{
+            "stream": "solusdt@ticker",
+            "data": {
+                "s": "SOLUSDT",
+                "c": "189.75",
+                "E": 1699123456789
+            }
+        }"#;
+
+        let price_update = client.parse_ticker_message(wrapped_ticker_json).unwrap();
+        assert_eq!(price_update.source, PriceSource::Binance);
+        assert_eq!(price_update.pair, TradingPair::SolUsdt);
+        assert_eq!(price_update.price, 189.75);
     }
 }

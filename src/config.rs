@@ -39,6 +39,16 @@ impl ProfitThreshold {
     pub fn value(&self) -> f64 {
         self.0
     }
+
+    /// Create new ProfitThreshold for testing
+    #[cfg(test)]
+    pub fn new(value: f64) -> Result<Self, ConfigError> {
+        if value >= 0.0 && value <= 100.0 {
+            Ok(Self(value))
+        } else {
+            Err(ConfigError::InvalidThreshold(value))
+        }
+    }
 }
 
 /// Validated maximum price age in milliseconds
@@ -48,6 +58,12 @@ pub struct MaxPriceAge(u64);
 impl MaxPriceAge {
     pub fn value(&self) -> u64 {
         self.0
+    }
+
+    /// Create new MaxPriceAge for testing
+    #[cfg(test)]
+    pub fn new(value: u64) -> Self {
+        Self(value)
     }
 }
 
