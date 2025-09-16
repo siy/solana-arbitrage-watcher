@@ -2,12 +2,46 @@ use crate::config::TradingPair;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Helper function for calculating age in milliseconds
+fn calculate_age_ms(timestamp: SystemTime) -> u64 {
+    SystemTime::now()
+        .duration_since(timestamp)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
+/// Custom serde serialization for SystemTime
+mod systemtime_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    pub fn serialize<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let duration = time.duration_since(UNIX_EPOCH).unwrap_or_default();
+        duration.as_millis().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<SystemTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let millis = u128::deserialize(deserializer)?;
+        let duration = std::time::Duration::from_millis(millis as u64);
+        Ok(UNIX_EPOCH + duration)
+    }
+}
+
 /// Price update from a WebSocket source
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PriceUpdate {
     pub source: PriceSource,
     pub pair: TradingPair,
     pub price: f64,
+    #[serde(with = "systemtime_serde")]
     pub timestamp: SystemTime,
 }
 
@@ -20,6 +54,12 @@ impl PriceUpdate {
             price,
             timestamp: SystemTime::now(),
         }
+    }
+
+    /// Validate price value for financial data integrity
+    #[allow(dead_code)]
+    pub fn is_valid_price(&self) -> bool {
+        self.price.is_finite() && self.price > 0.0
     }
 
     /// Create price update with specific timestamp
@@ -41,11 +81,7 @@ impl PriceUpdate {
     /// Get age of this price update in milliseconds
     #[allow(dead_code)]
     pub fn age_ms(&self) -> u64 {
-        let ms = SystemTime::now()
-            .duration_since(self.timestamp)
-            .unwrap_or_default()
-            .as_millis();
-        ms.min(u128::from(u64::MAX)) as u64
+        calculate_age_ms(self.timestamp)
     }
 
     /// Check if this price update is stale based on max age
@@ -115,11 +151,7 @@ impl SourcePrice {
 
     /// Get age of this price data in milliseconds
     pub fn age_ms(&self) -> u64 {
-        let ms = SystemTime::now()
-            .duration_since(self.timestamp)
-            .unwrap_or_default()
-            .as_millis();
-        ms.min(u128::from(u64::MAX)) as u64
+        calculate_age_ms(self.timestamp)
     }
 
     /// Check if price data is considered stale
@@ -164,13 +196,15 @@ impl PriceCache {
         let source_price = SourcePrice::from_update(update);
         match update.source {
             PriceSource::Solana => {
-                if let Ok(mut price) = self.solana_price.write() {
-                    *price = Some(source_price);
+                match self.solana_price.write() {
+                    Ok(mut price) => *price = Some(source_price),
+                    Err(_) => eprintln!("Failed to acquire write lock for Solana price"),
                 }
             }
             PriceSource::Binance => {
-                if let Ok(mut price) = self.binance_price.write() {
-                    *price = Some(source_price);
+                match self.binance_price.write() {
+                    Ok(mut price) => *price = Some(source_price),
+                    Err(_) => eprintln!("Failed to acquire write lock for Binance price"),
                 }
             }
         }
@@ -178,8 +212,10 @@ impl PriceCache {
 
     /// Get current prices from both sources if available
     pub fn get_both_prices(&self) -> Option<(SourcePrice, SourcePrice)> {
-        let solana = self.solana_price.read().ok()?.clone()?;
-        let binance = self.binance_price.read().ok()?.clone()?;
+        let solana_lock = self.solana_price.read().ok()?;
+        let binance_lock = self.binance_price.read().ok()?;
+        let solana = solana_lock.clone()?;
+        let binance = binance_lock.clone()?;
         Some((solana, binance))
     }
 
@@ -202,15 +238,21 @@ impl PriceCache {
     /// Clear stale prices based on max age
     #[allow(dead_code)]
     pub fn clear_stale_prices(&self, max_age_ms: u64) {
-        if let Ok(mut s) = self.solana_price.write() {
-            if s.as_ref().is_some_and(|p| p.is_stale(max_age_ms)) {
-                *s = None;
+        match self.solana_price.write() {
+            Ok(mut s) => {
+                if s.as_ref().is_some_and(|p| p.is_stale(max_age_ms)) {
+                    *s = None;
+                }
             }
+            Err(_) => eprintln!("Failed to acquire write lock for Solana price during cleanup"),
         }
-        if let Ok(mut b) = self.binance_price.write() {
-            if b.as_ref().is_some_and(|p| p.is_stale(max_age_ms)) {
-                *b = None;
+        match self.binance_price.write() {
+            Ok(mut b) => {
+                if b.as_ref().is_some_and(|p| p.is_stale(max_age_ms)) {
+                    *b = None;
+                }
             }
+            Err(_) => eprintln!("Failed to acquire write lock for Binance price during cleanup"),
         }
     }
 }
