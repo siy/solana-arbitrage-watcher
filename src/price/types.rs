@@ -195,18 +195,14 @@ impl PriceCache {
     pub fn update(&self, update: &PriceUpdate) {
         let source_price = SourcePrice::from_update(update);
         match update.source {
-            PriceSource::Solana => {
-                match self.solana_price.write() {
-                    Ok(mut price) => *price = Some(source_price),
-                    Err(_) => eprintln!("Failed to acquire write lock for Solana price"),
-                }
-            }
-            PriceSource::Binance => {
-                match self.binance_price.write() {
-                    Ok(mut price) => *price = Some(source_price),
-                    Err(_) => eprintln!("Failed to acquire write lock for Binance price"),
-                }
-            }
+            PriceSource::Solana => match self.solana_price.write() {
+                Ok(mut price) => *price = Some(source_price),
+                Err(_) => eprintln!("Failed to acquire write lock for Solana price"),
+            },
+            PriceSource::Binance => match self.binance_price.write() {
+                Ok(mut price) => *price = Some(source_price),
+                Err(_) => eprintln!("Failed to acquire write lock for Binance price"),
+            },
         }
     }
 
