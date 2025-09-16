@@ -2,3 +2,8 @@ PLAN.md
 CLAUDE.md
 .claude/
 target/
+
+
+# Added by cargo
+
+/target
