@@ -53,6 +53,7 @@ impl MaxPriceAge {
 
 /// Supported trading pairs for arbitrage monitoring
 #[derive(Debug, Clone, Copy, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum TradingPair {
     SolUsdt,
     SolUsdc,
