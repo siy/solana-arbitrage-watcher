@@ -249,24 +249,32 @@ mod tests {
     #[test]
     fn test_config_validation() {
         // Invalid initial delay
-        let mut config = ReconnectConfig::default();
-        config.initial_delay = Duration::from_millis(0);
+        let config = ReconnectConfig {
+            initial_delay: Duration::from_millis(0),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Max delay less than initial delay
-        let mut config = ReconnectConfig::default();
-        config.max_delay = Duration::from_millis(500);
-        config.initial_delay = Duration::from_millis(1000);
+        let config = ReconnectConfig {
+            max_delay: Duration::from_millis(500),
+            initial_delay: Duration::from_millis(1000),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Invalid backoff multiplier
-        let mut config = ReconnectConfig::default();
-        config.backoff_multiplier = 1.0;
+        let config = ReconnectConfig {
+            backoff_multiplier: 1.0,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
 
         // Zero max attempts
-        let mut config = ReconnectConfig::default();
-        config.max_attempts = Some(0);
+        let config = ReconnectConfig {
+            max_attempts: Some(0),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
