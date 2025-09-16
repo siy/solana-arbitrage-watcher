@@ -39,6 +39,16 @@ impl ProfitThreshold {
     pub fn value(&self) -> f64 {
         self.0
     }
+
+    /// Create new ProfitThreshold for testing
+    #[cfg(test)]
+    pub fn new(value: f64) -> Result<Self, ConfigError> {
+        if (0.0..=100.0).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(ConfigError::InvalidThreshold(value))
+        }
+    }
 }
 
 /// Validated maximum price age in milliseconds
@@ -49,10 +59,18 @@ impl MaxPriceAge {
     pub fn value(&self) -> u64 {
         self.0
     }
+
+    /// Create new MaxPriceAge for testing
+    #[cfg(test)]
+    pub fn new(value: u64) -> Self {
+        Self(value)
+    }
 }
 
 /// Supported trading pairs for arbitrage monitoring
-#[derive(Debug, Clone, Copy, clap::ValueEnum, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "kebab-case")]
 pub enum TradingPair {
     SolUsdt,

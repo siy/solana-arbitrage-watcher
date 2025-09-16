@@ -1,3 +1,4 @@
+mod arbitrage;
 mod config;
 mod price;
 mod websocket;
