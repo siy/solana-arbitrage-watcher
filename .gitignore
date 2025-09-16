@@ -1,4 +1,13 @@
-PLAN.md
-CLAUDE.md
+/target/
+debug/
+release/
+
+.vscode/
+.idea/
+
+.env
+.env.local
+
 .claude/
-target/
+CLAUDE.md
+PLAN.md
