@@ -31,10 +31,10 @@ pub struct TradingFees {
 impl Default for TradingFees {
     fn default() -> Self {
         Self {
-            binance_spot_fee: 0.1,      // 0.1% for spot trading
-            solana_dex_fee: 0.25,       // 0.25% for DEX trading
-            solana_gas_fee: 0.001,      // ~0.001 SOL per transaction
-            transfer_fee: 0.0,          // Assuming no additional transfer fees
+            binance_spot_fee: 0.1, // 0.1% for spot trading
+            solana_dex_fee: 0.25,  // 0.25% for DEX trading
+            solana_gas_fee: 0.001, // ~0.001 SOL per transaction
+            transfer_fee: 0.0,     // Assuming no additional transfer fees
         }
     }
 }
@@ -165,7 +165,10 @@ impl Default for FeeCalculator {
 
 impl FeeCalculator {
     /// Create new fee calculator with custom fees
-    pub fn new(trading_fees: TradingFees, default_trade_amount: f64) -> Result<Self, CalculatorError> {
+    pub fn new(
+        trading_fees: TradingFees,
+        default_trade_amount: f64,
+    ) -> Result<Self, CalculatorError> {
         if default_trade_amount <= 0.0 {
             return Err(CalculatorError::InvalidTradeAmount(default_trade_amount));
         }
@@ -201,7 +204,8 @@ impl FeeCalculator {
         }
 
         // Calculate total fees per unit
-        let total_fees_per_unit = self.calculate_total_fees(buy_price, sell_price, buy_source, sell_source);
+        let total_fees_per_unit =
+            self.calculate_total_fees(buy_price, sell_price, buy_source, sell_source);
 
         // Calculate net profit after fees
         let net_profit_per_unit = raw_profit_per_unit - total_fees_per_unit;

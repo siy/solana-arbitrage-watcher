@@ -41,10 +41,8 @@ impl ConnectionManager {
         let binance_client = BinanceClient::with_default(config.pair)?;
 
         // Create Solana client from RPC providers in config
-        let solana_client = SolanaClient::from_providers(
-            config.rpc_providers.clone(),
-            config.pair,
-        )?;
+        let solana_client =
+            SolanaClient::from_providers(config.rpc_providers.clone(), config.pair)?;
 
         let price_cache = Arc::new(PriceCache::new());
 
@@ -170,11 +168,8 @@ mod tests {
         let binance_config = BinanceConfig::default();
         let solana_config = SolanaConfig::default();
 
-        let manager = ConnectionManager::with_custom_configs(
-            &config,
-            binance_config,
-            solana_config,
-        );
+        let manager =
+            ConnectionManager::with_custom_configs(&config, binance_config, solana_config);
         assert!(manager.is_ok());
     }
 

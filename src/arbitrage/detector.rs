@@ -64,14 +64,18 @@ impl DetectionStats {
         if self.total_checks == 1 {
             self.average_spread = spread_percentage;
         } else {
-            self.average_spread =
-                (self.average_spread * (self.total_checks - 1) as f64 + spread_percentage)
+            self.average_spread = (self.average_spread * (self.total_checks - 1) as f64
+                + spread_percentage)
                 / self.total_checks as f64;
         }
     }
 
     /// Update stats with a new opportunity
-    pub fn update_opportunity(&mut self, opportunity: &ArbitrageOpportunity, meets_threshold: bool) {
+    pub fn update_opportunity(
+        &mut self,
+        opportunity: &ArbitrageOpportunity,
+        meets_threshold: bool,
+    ) {
         self.opportunities_found += 1;
 
         if meets_threshold {
@@ -159,7 +163,10 @@ impl ArbitrageDetector {
         let start_time = Instant::now();
         let mut check_interval = interval(self.check_interval);
 
-        println!("Starting arbitrage detection for {:?}...", self.trading_pair);
+        println!(
+            "Starting arbitrage detection for {:?}...",
+            self.trading_pair
+        );
         println!("Profit threshold: {:.2}%", self.profit_threshold.value());
 
         loop {
@@ -204,7 +211,9 @@ impl ArbitrageDetector {
     }
 
     /// Check for arbitrage opportunities once
-    pub async fn check_for_opportunities(&mut self) -> Result<Option<ArbitrageOpportunity>, DetectorError> {
+    pub async fn check_for_opportunities(
+        &mut self,
+    ) -> Result<Option<ArbitrageOpportunity>, DetectorError> {
         // Get validated prices
         let prices = self.price_processor.get_validated_prices()?;
 
@@ -212,7 +221,8 @@ impl ArbitrageDetector {
         self.stats.update_check(prices.price_spread_percentage);
 
         // Calculate arbitrage opportunity
-        let opportunity = self.fee_calculator
+        let opportunity = self
+            .fee_calculator
             .calculate_opportunity(&prices, self.trading_pair)?;
 
         Ok(opportunity.filter(|opp| opp.is_profitable()))
@@ -416,13 +426,18 @@ mod tests {
         let mut detector = ArbitrageDetector::new(cache, &config, fee_calculator);
 
         // Should find the opportunity immediately since cache is already populated
-        let result = detector.wait_for_opportunity(Duration::from_millis(100)).await;
+        let result = detector
+            .wait_for_opportunity(Duration::from_millis(100))
+            .await;
 
         // If this still fails, let's just check that we can detect any opportunity
         if result.is_err() {
             // Fallback: just verify we can check for opportunities without error
             let check_result = detector.check_for_opportunities().await;
-            assert!(check_result.is_ok(), "Should be able to check for opportunities");
+            assert!(
+                check_result.is_ok(),
+                "Should be able to check for opportunities"
+            );
         } else {
             assert!(result.is_ok());
         }
@@ -437,7 +452,9 @@ mod tests {
 
         let mut detector = ArbitrageDetector::new(cache, &config, fee_calculator);
 
-        let result = detector.wait_for_opportunity(Duration::from_millis(100)).await;
+        let result = detector
+            .wait_for_opportunity(Duration::from_millis(100))
+            .await;
         // Should timeout since there's no profitable opportunity meeting the threshold
         assert!(matches!(result, Err(DetectorError::DetectionTimeout(_))));
     }
@@ -463,7 +480,10 @@ mod tests {
 
         // Create a test opportunity
         if let Ok(prices) = detector.price_processor.get_validated_prices() {
-            if let Ok(Some(opportunity)) = detector.fee_calculator.calculate_opportunity(&prices, TradingPair::SolUsdt) {
+            if let Ok(Some(opportunity)) = detector
+                .fee_calculator
+                .calculate_opportunity(&prices, TradingPair::SolUsdt)
+            {
                 stats.update_opportunity(&opportunity, true);
                 assert_eq!(stats.opportunities_found, 1);
                 assert_eq!(stats.threshold_opportunities, 1);

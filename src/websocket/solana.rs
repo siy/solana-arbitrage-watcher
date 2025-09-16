@@ -395,12 +395,8 @@ impl SolanaClient {
     /// Get mock pool address for trading pair
     fn get_mock_pool_address(&self) -> Result<String, SolanaError> {
         match self.trading_pair {
-            TradingPair::SolUsdt => {
-                Ok("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU".to_string())
-            }
-            TradingPair::SolUsdc => {
-                Ok("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string())
-            }
+            TradingPair::SolUsdt => Ok("7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU".to_string()),
+            TradingPair::SolUsdc => Ok("9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM".to_string()),
         }
     }
 
@@ -534,7 +530,9 @@ mod tests {
             },
         };
 
-        let price_update = client.extract_price_from_account_data(&notification).unwrap();
+        let price_update = client
+            .extract_price_from_account_data(&notification)
+            .unwrap();
         assert_eq!(price_update.source, PriceSource::Solana);
         assert_eq!(price_update.pair, TradingPair::SolUsdt);
         assert!(price_update.price > 0.0);

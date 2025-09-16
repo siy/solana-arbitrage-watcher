@@ -11,10 +11,7 @@ pub enum ProcessorError {
     #[error("No fresh price data available")]
     NoFreshData,
     #[error("Price data is stale: age={age_ms}ms, max={max_age_ms}ms")]
-    StaleData {
-        age_ms: u64,
-        max_age_ms: u64,
-    },
+    StaleData { age_ms: u64, max_age_ms: u64 },
     #[error("Invalid price detected: {price}")]
     InvalidPrice { price: f64 },
     #[error("Price cache lock error")]
@@ -133,7 +130,10 @@ impl PriceProcessor {
     }
 
     /// Wait for fresh price data to become available
-    pub async fn wait_for_fresh_prices(&self, timeout: Duration) -> Result<ValidatedPricePair, ProcessorError> {
+    pub async fn wait_for_fresh_prices(
+        &self,
+        timeout: Duration,
+    ) -> Result<ValidatedPricePair, ProcessorError> {
         let start = tokio::time::Instant::now();
         let mut check_interval = interval(Duration::from_millis(100));
 
@@ -167,7 +167,8 @@ impl PriceProcessor {
 
     /// Check if fresh prices are available without validation
     pub fn has_fresh_prices(&self) -> bool {
-        self.price_cache.has_fresh_prices(self.max_price_age.value())
+        self.price_cache
+            .has_fresh_prices(self.max_price_age.value())
     }
 
     /// Get current price age statistics
@@ -183,10 +184,7 @@ impl PriceProcessor {
         let max_age_ms = self.max_price_age.value();
 
         if age_ms > max_age_ms {
-            return Err(ProcessorError::StaleData {
-                age_ms,
-                max_age_ms,
-            });
+            return Err(ProcessorError::StaleData { age_ms, max_age_ms });
         }
 
         Ok(())
@@ -195,17 +193,13 @@ impl PriceProcessor {
     /// Validate that price value is reasonable
     fn validate_price_value(&self, price: &SourcePrice) -> Result<(), ProcessorError> {
         if !price.price.is_finite() || price.price <= 0.0 {
-            return Err(ProcessorError::InvalidPrice {
-                price: price.price,
-            });
+            return Err(ProcessorError::InvalidPrice { price: price.price });
         }
 
         // Additional validation: reasonable price ranges for SOL
         // This prevents obviously incorrect data from being processed
         if price.price < 1.0 || price.price > 10000.0 {
-            return Err(ProcessorError::InvalidPrice {
-                price: price.price,
-            });
+            return Err(ProcessorError::InvalidPrice { price: price.price });
         }
 
         Ok(())
@@ -386,7 +380,9 @@ mod tests {
         let cache = Arc::new(PriceCache::new()); // Empty cache
         let processor = PriceProcessor::new(cache, &config);
 
-        let result = processor.wait_for_fresh_prices(Duration::from_millis(50)).await;
+        let result = processor
+            .wait_for_fresh_prices(Duration::from_millis(50))
+            .await;
         assert!(matches!(result, Err(ProcessorError::NoFreshData)));
     }
 
@@ -401,12 +397,15 @@ mod tests {
         tokio::spawn(async move {
             sleep(Duration::from_millis(10)).await;
             let solana_update = PriceUpdate::new(PriceSource::Solana, TradingPair::SolUsdt, 195.5);
-            let binance_update = PriceUpdate::new(PriceSource::Binance, TradingPair::SolUsdt, 195.0);
+            let binance_update =
+                PriceUpdate::new(PriceSource::Binance, TradingPair::SolUsdt, 195.0);
             cache_clone.update(&solana_update);
             cache_clone.update(&binance_update);
         });
 
-        let result = processor.wait_for_fresh_prices(Duration::from_millis(100)).await;
+        let result = processor
+            .wait_for_fresh_prices(Duration::from_millis(100))
+            .await;
         assert!(result.is_ok());
     }
 }
