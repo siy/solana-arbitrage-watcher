@@ -109,7 +109,7 @@ impl PriceProcessor {
             price_cache,
             max_price_age: config.max_price_age_ms,
             validation_enabled: true,
-            min_price_bound: 1.0,   // Default SOL minimum price
+            min_price_bound: 1.0,     // Default SOL minimum price
             max_price_bound: 10000.0, // Default SOL maximum price
         }
     }

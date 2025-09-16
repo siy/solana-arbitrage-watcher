@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
+use log::{error, info, warn};
 use thiserror::Error;
 use tokio::time::{sleep, timeout};
-use log::{error, warn, info};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use url::Url;
 
@@ -245,7 +245,10 @@ impl BinanceClient {
     fn parse_ticker_message(&self, text: &str) -> Result<PriceUpdate, BinanceError> {
         // Try parsing as wrapped stream data first
         if let Ok(stream_data) = serde_json::from_str::<StreamData>(text) {
-            let price: f64 = stream_data.data.price.parse()
+            let price: f64 = stream_data
+                .data
+                .price
+                .parse()
                 .map_err(|_| BinanceError::InvalidPrice(stream_data.data.price.clone()))?;
             return Ok(PriceUpdate::new(
                 PriceSource::Binance,
@@ -256,7 +259,9 @@ impl BinanceClient {
 
         // Try parsing as direct ticker data
         if let Ok(ticker_data) = serde_json::from_str::<TickerData>(text) {
-            let price: f64 = ticker_data.price.parse()
+            let price: f64 = ticker_data
+                .price
+                .parse()
                 .map_err(|_| BinanceError::InvalidPrice(ticker_data.price.clone()))?;
             return Ok(PriceUpdate::new(
                 PriceSource::Binance,
@@ -265,10 +270,12 @@ impl BinanceClient {
             ));
         }
 
-        Err(BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "Unable to parse as either wrapped or direct ticker data",
-        ))))
+        Err(BinanceError::JsonError(serde_json::Error::io(
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Unable to parse as either wrapped or direct ticker data",
+            ),
+        )))
     }
 
     /// Convert TradingPair to Binance symbol format
