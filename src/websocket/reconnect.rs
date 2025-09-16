@@ -9,9 +9,6 @@ pub enum ReconnectError {
     MaxAttemptsExceeded(usize),
     #[error("Connection timeout after {0:?}")]
     ConnectionTimeout(Duration),
-    #[error("Connection error: {0}")]
-    #[allow(dead_code)]
-    ConnectionError(String),
 }
 
 /// Configuration for exponential backoff reconnection strategy
@@ -34,14 +31,11 @@ pub struct ReconnectConfig {
 
 impl Default for ReconnectConfig {
     fn default() -> Self {
-        Self {
-            initial_delay: Duration::from_millis(1000),
-            max_delay: Duration::from_secs(60),
-            backoff_multiplier: 2.0,
-            max_attempts: Some(10),
-            max_total_duration: Some(Duration::from_secs(300)), // 5 minutes
-            jitter: true,
-        }
+        Self::new(
+            Duration::from_millis(1000),
+            Duration::from_secs(60),
+            2.0,
+        )
     }
 }
 
@@ -98,6 +92,12 @@ impl ReconnectConfig {
         if let Some(attempts) = self.max_attempts {
             if attempts == 0 {
                 return Err("Max attempts must be greater than zero if specified".to_string());
+            }
+        }
+
+        if let Some(total) = self.max_total_duration {
+            if total.is_zero() {
+                return Err("Max total duration, if specified, must be greater than zero".to_string());
             }
         }
 
@@ -178,7 +178,7 @@ impl ReconnectHandler {
         Ok(delay)
     }
 
-    /// Get the current attempt number (0-based)
+    /// Get the current attempt number (1-based)
     #[allow(dead_code)]
     pub fn attempt_count(&self) -> usize {
         self.attempt_count
@@ -210,11 +210,8 @@ impl ReconnectHandler {
 
     /// Update the current delay for the next attempt using exponential backoff
     fn update_delay(&mut self) {
-        let next_delay_ms =
-            (self.current_delay.as_millis() as f64 * self.config.backoff_multiplier) as u64;
-        let next_delay = Duration::from_millis(next_delay_ms);
-
-        self.current_delay = next_delay.min(self.config.max_delay);
+        let next = self.current_delay.mul_f64(self.config.backoff_multiplier);
+        self.current_delay = next.min(self.config.max_delay);
     }
 
     /// Add random jitter to the delay to prevent thundering herd problems
@@ -273,6 +270,13 @@ mod tests {
         // Zero max attempts
         let config = ReconnectConfig {
             max_attempts: Some(0),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+
+        // Zero max total duration
+        let config = ReconnectConfig {
+            max_total_duration: Some(Duration::ZERO),
             ..Default::default()
         };
         assert!(config.validate().is_err());
@@ -389,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_jitter_adds_variation() {
-        let config = ReconnectConfig {
+        let config_with_jitter = ReconnectConfig {
             initial_delay: Duration::from_millis(1000),
             max_delay: Duration::from_millis(5000),
             backoff_multiplier: 2.0,
@@ -398,15 +402,34 @@ mod tests {
             jitter: true,
         };
 
-        let mut handler = ReconnectHandler::new(config).unwrap();
+        let config_without_jitter = ReconnectConfig {
+            jitter: false,
+            ..config_with_jitter.clone()
+        };
 
-        // With jitter enabled, delays should vary
-        let delay1 = handler.should_reconnect().unwrap();
-        handler.reset();
-        let delay2 = handler.should_reconnect().unwrap();
+        let mut handler_with_jitter = ReconnectHandler::new(config_with_jitter).unwrap();
+        let mut handler_without_jitter = ReconnectHandler::new(config_without_jitter).unwrap();
 
-        // Note: This test might be flaky if the jitter produces the same value
-        // but it's very unlikely with our hash-based approach
-        println!("Delay1: {:?}, Delay2: {:?}", delay1, delay2);
+        // Multiple attempts to test jitter variation
+        let mut jittered_delays = Vec::new();
+        let mut non_jittered_delays = Vec::new();
+
+        for _ in 0..5 {
+            handler_with_jitter.reset();
+            handler_without_jitter.reset();
+
+            jittered_delays.push(handler_with_jitter.should_reconnect().unwrap());
+            non_jittered_delays.push(handler_without_jitter.should_reconnect().unwrap());
+        }
+
+        // All non-jittered delays should be identical
+        assert!(non_jittered_delays.windows(2).all(|w| w[0] == w[1]),
+                "Non-jittered delays should be identical");
+
+        // Jittered delays should show some variation due to hash-based jitter
+        // At least one should be different from the base delay
+        let base_delay = Duration::from_millis(1000);
+        assert!(jittered_delays.iter().any(|&d| d != base_delay),
+                "Jitter should cause some variation from base delay");
     }
 }
