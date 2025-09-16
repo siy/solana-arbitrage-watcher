@@ -48,11 +48,7 @@ impl Default for ReconnectConfig {
 impl ReconnectConfig {
     /// Create a new reconnection configuration with custom parameters
     #[allow(dead_code)]
-    pub fn new(
-        initial_delay: Duration,
-        max_delay: Duration,
-        backoff_multiplier: f64,
-    ) -> Self {
+    pub fn new(initial_delay: Duration, max_delay: Duration, backoff_multiplier: f64) -> Self {
         Self {
             initial_delay,
             max_delay,
@@ -136,8 +132,7 @@ impl ReconnectHandler {
     /// Create a reconnection handler with default configuration
     #[allow(dead_code)]
     pub fn with_default() -> Self {
-        Self::new(ReconnectConfig::default())
-            .expect("Default configuration should be valid")
+        Self::new(ReconnectConfig::default()).expect("Default configuration should be valid")
     }
 
     /// Reset the handler to initial state for a new connection session
@@ -215,7 +210,8 @@ impl ReconnectHandler {
 
     /// Update the current delay for the next attempt using exponential backoff
     fn update_delay(&mut self) {
-        let next_delay_ms = (self.current_delay.as_millis() as f64 * self.config.backoff_multiplier) as u64;
+        let next_delay_ms =
+            (self.current_delay.as_millis() as f64 * self.config.backoff_multiplier) as u64;
         let next_delay = Duration::from_millis(next_delay_ms);
 
         self.current_delay = next_delay.min(self.config.max_delay);
@@ -334,7 +330,10 @@ mod tests {
         // Third attempt should fail
         let result = handler.should_reconnect();
         assert!(result.is_err());
-        assert!(matches!(result, Err(ReconnectError::MaxAttemptsExceeded(2))));
+        assert!(matches!(
+            result,
+            Err(ReconnectError::MaxAttemptsExceeded(2))
+        ));
     }
 
     #[test]
