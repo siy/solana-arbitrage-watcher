@@ -109,8 +109,13 @@ impl BinanceClient {
     /// Create new Binance WebSocket client
     #[allow(dead_code)]
     pub fn new(config: BinanceConfig, trading_pair: TradingPair) -> Result<Self, BinanceError> {
-        let reconnect_handler = ReconnectHandler::new(config.reconnect_config.clone())
-            .map_err(|e| BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidInput, e))))?;
+        let reconnect_handler =
+            ReconnectHandler::new(config.reconnect_config.clone()).map_err(|e| {
+                BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    e,
+                )))
+            })?;
 
         Ok(Self {
             config,
@@ -182,7 +187,10 @@ impl BinanceClient {
         // Subscribe to ticker stream
         let subscribe_msg = self.create_subscribe_message()?;
         let msg_text = serde_json::to_string(&subscribe_msg)?;
-        write.send(Message::Text(msg_text)).await.map_err(|e| BinanceError::ConnectionError(Box::new(e)))?;
+        write
+            .send(Message::Text(msg_text))
+            .await
+            .map_err(|e| BinanceError::ConnectionError(Box::new(e)))?;
 
         // Process incoming messages
         while let Some(message) = read.next().await {
@@ -193,7 +201,10 @@ impl BinanceClient {
                     }
                 }
                 Message::Ping(payload) => {
-                    write.send(Message::Pong(payload)).await.map_err(|e| BinanceError::ConnectionError(Box::new(e)))?;
+                    write
+                        .send(Message::Pong(payload))
+                        .await
+                        .map_err(|e| BinanceError::ConnectionError(Box::new(e)))?;
                 }
                 Message::Close(_) => {
                     eprintln!("Binance WebSocket connection closed");
@@ -228,8 +239,12 @@ impl BinanceClient {
     fn parse_ticker_message(&self, text: &str) -> Result<PriceUpdate, BinanceError> {
         let stream_data: StreamData = serde_json::from_str(text)?;
 
-        let price: f64 = stream_data.data.price.parse()
-            .map_err(|_| BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid price format"))))?;
+        let price: f64 = stream_data.data.price.parse().map_err(|_| {
+            BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid price format",
+            )))
+        })?;
 
         Ok(PriceUpdate::new(
             PriceSource::Binance,
@@ -339,14 +354,10 @@ mod tests {
 
     #[test]
     fn test_reconnect_config_integration() {
-        let reconnect_config = ReconnectConfig::new(
-            Duration::from_millis(500),
-            Duration::from_secs(30),
-            1.5,
-        );
+        let reconnect_config =
+            ReconnectConfig::new(Duration::from_millis(500), Duration::from_secs(30), 1.5);
 
-        let binance_config = BinanceConfig::default()
-            .with_reconnect_config(reconnect_config);
+        let binance_config = BinanceConfig::default().with_reconnect_config(reconnect_config);
 
         let client = BinanceClient::new(binance_config, TradingPair::SolUsdt).unwrap();
 
