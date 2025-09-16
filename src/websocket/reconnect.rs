@@ -31,11 +31,7 @@ pub struct ReconnectConfig {
 
 impl Default for ReconnectConfig {
     fn default() -> Self {
-        Self::new(
-            Duration::from_millis(1000),
-            Duration::from_secs(60),
-            2.0,
-        )
+        Self::new(Duration::from_millis(1000), Duration::from_secs(60), 2.0)
     }
 }
 
@@ -97,7 +93,9 @@ impl ReconnectConfig {
 
         if let Some(total) = self.max_total_duration {
             if total.is_zero() {
-                return Err("Max total duration, if specified, must be greater than zero".to_string());
+                return Err(
+                    "Max total duration, if specified, must be greater than zero".to_string(),
+                );
             }
         }
 
@@ -423,13 +421,17 @@ mod tests {
         }
 
         // All non-jittered delays should be identical
-        assert!(non_jittered_delays.windows(2).all(|w| w[0] == w[1]),
-                "Non-jittered delays should be identical");
+        assert!(
+            non_jittered_delays.windows(2).all(|w| w[0] == w[1]),
+            "Non-jittered delays should be identical"
+        );
 
         // Jittered delays should show some variation due to hash-based jitter
         // At least one should be different from the base delay
         let base_delay = Duration::from_millis(1000);
-        assert!(jittered_delays.iter().any(|&d| d != base_delay),
-                "Jitter should cause some variation from base delay");
+        assert!(
+            jittered_delays.iter().any(|&d| d != base_delay),
+            "Jitter should cause some variation from base delay"
+        );
     }
 }
