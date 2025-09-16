@@ -55,6 +55,12 @@ pub struct PriceBounds {
 
 impl PriceBounds {
     pub fn new(min_price: f64, max_price: f64) -> Result<Self, ConfigError> {
+        if !min_price.is_finite() || !max_price.is_finite() {
+            return Err(ConfigError::PriceBound(format!(
+                "Prices must be finite numbers, got min={} max={}",
+                min_price, max_price
+            )));
+        }
         if min_price <= 0.0 {
             return Err(ConfigError::PriceBound(format!(
                 "Minimum price must be positive, got: {}",
