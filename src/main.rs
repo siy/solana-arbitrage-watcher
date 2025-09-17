@@ -38,7 +38,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Profit threshold: {}%", config.threshold.value());
     info!("Max price age: {}ms", config.max_price_age_ms.value());
     info!("Output format: {}", config.output_format);
-    info!("RPC providers: {:?}", config.rpc_providers);
+    // Avoid logging full URLs (may contain credentials/keys)
+    info!("RPC providers configured: {}", config.rpc_providers.len());
 
     info!("Starting WebSocket connections...");
 
