@@ -1,65 +1,111 @@
 mod arbitrage;
 mod config;
+mod output;
 mod price;
+mod util;
 mod websocket;
 
+use arbitrage::{calculator::FeeCalculator, detector::ArbitrageDetector};
 use clap::Parser;
 use config::{Config, RawConfig};
-use price::{PriceCache, PriceSource, PriceUpdate};
+use log::{error, info};
+use output::OutputFormatter;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::signal;
+use websocket::ConnectionManager;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize logging
+    env_logger::init();
+
+    // Parse command line arguments and validate configuration
     let raw_config = RawConfig::parse();
     let config = match Config::new(&raw_config) {
         Ok(config) => config,
         Err(errors) => {
-            eprintln!("{}", errors);
+            error!("Configuration error: {}", errors);
             std::process::exit(1);
         }
     };
 
-    println!("Configuration loaded successfully!");
-    println!("Trading pair: {:?}", config.pair);
-    println!("Profit threshold: {}%", config.threshold.value());
-    println!("Max price age: {}ms", config.max_price_age_ms.value());
-    println!("RPC providers: {:?}", config.rpc_providers);
+    // Initialize output formatter from configuration
+    let formatter = OutputFormatter::new(config.output_format);
 
-    // Demonstrate price types (for development only)
-    if cfg!(debug_assertions) {
-        println!("\nDemonstrating price types:");
-        let price_cache = PriceCache::new();
+    info!("Solana Arbitrage Watcher Starting");
+    info!("Trading pair: {:?}", config.pair);
+    info!("Profit threshold: {}%", config.threshold.value());
+    info!("Max price age: {}ms", config.max_price_age_ms.value());
+    info!("Output format: {}", config.output_format);
+    // Avoid logging full URLs (may contain credentials/keys)
+    info!("RPC providers configured: {}", config.rpc_providers.len());
 
-        // Simulate price updates
-        let solana_update = PriceUpdate::new(PriceSource::Solana, config.pair, 195.50);
-        let binance_update = PriceUpdate::new(PriceSource::Binance, config.pair, 195.75);
+    info!("Starting WebSocket connections...");
 
-        println!(
-            "Solana update: {} at ${:.2}",
-            PriceSource::Solana.display_name(),
-            solana_update.price
-        );
-        println!(
-            "Binance update: {} at ${:.2}",
-            PriceSource::Binance.display_name(),
-            binance_update.price
-        );
+    // Create WebSocket connection manager
+    let connection_manager = ConnectionManager::new(&config)?;
 
-        // Update cache
-        price_cache.update(&solana_update);
-        price_cache.update(&binance_update);
+    // Start WebSocket connections and get the price cache with shutdown handles
+    let (price_cache, binance_handle, solana_handle) = connection_manager.start_with_handles();
 
-        // Check fresh prices
-        if price_cache.has_fresh_prices(config.max_price_age_ms.value()) {
-            if let Some((solana_price, binance_price)) = price_cache.get_both_prices() {
-                println!(
-                    "Fresh prices available: {} ${:.2}, {} ${:.2}",
-                    solana_price.source.display_name(),
-                    solana_price.price,
-                    binance_price.source.display_name(),
-                    binance_price.price
-                );
+    // Create fee calculator with default settings
+    let fee_calculator = FeeCalculator::default();
+
+    // Create arbitrage detector
+    let arbitrage_detector =
+        ArbitrageDetector::new(Arc::clone(&price_cache), &config, fee_calculator);
+
+    info!("Price data available, starting arbitrage detection");
+    println!();
+
+    // Main arbitrage detection loop
+    let detection_handle = {
+        let mut detector = arbitrage_detector;
+        let trading_pair = config.pair;
+
+        tokio::spawn(async move {
+            let mut detection_interval = tokio::time::interval(Duration::from_secs(1));
+
+            loop {
+                detection_interval.tick().await;
+
+                match detector.check_for_opportunities().await {
+                    Ok(Some(opportunity)) => {
+                        println!("{}", formatter.format_opportunity(&opportunity));
+                        println!();
+                    }
+                    Ok(None) => {
+                        // Only show "no opportunities" message periodically to avoid spam
+                        if detector.stats().total_checks % 60 == 0 {
+                            println!("{}", formatter.format_no_opportunities(trading_pair));
+                            println!();
+                        }
+                    }
+                    Err(e) => {
+                        println!("{}", formatter.format_error(&e.to_string()));
+                        println!();
+                    }
+                }
             }
-        }
-    }
+        })
+    };
+
+    // Wait for shutdown signal (Ctrl+C)
+    info!("Monitoring for arbitrage opportunities... (Press Ctrl+C to stop)");
+    signal::ctrl_c().await?;
+
+    info!("Shutdown signal received, stopping...");
+
+    // Cancel all tasks
+    detection_handle.abort();
+    binance_handle.abort();
+    solana_handle.abort();
+
+    // Wait a moment for graceful shutdown
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    info!("Arbitrage watcher stopped");
 
     Ok(())
 }

@@ -109,8 +109,8 @@ impl PriceProcessor {
             price_cache,
             max_price_age: config.max_price_age_ms,
             validation_enabled: true,
-            min_price_bound: 1.0,     // Default SOL minimum price
-            max_price_bound: 10000.0, // Default SOL maximum price
+            min_price_bound: config.price_bounds.min_price,
+            max_price_bound: config.price_bounds.max_price,
         }
     }
 
@@ -266,6 +266,9 @@ mod tests {
             threshold: 0.5,
             max_price_age_ms: 5000,
             rpc_url: None,
+            output_format: crate::output::OutputFormat::Table,
+            min_price: 1.0,
+            max_price: 10000.0,
         };
         Config::new(&raw).unwrap()
     }
