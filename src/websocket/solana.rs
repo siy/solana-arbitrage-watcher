@@ -146,15 +146,21 @@ impl RaydiumPoolState {
     /// Price = quote_amount / base_amount
     pub fn calculate_price(&self) -> Result<f64, SolanaError> {
         if self.pool_base_token_amount == 0 {
-            return Err(SolanaError::PoolParsingError("Base token amount is zero".to_string()));
+            return Err(SolanaError::PoolParsingError(
+                "Base token amount is zero".to_string(),
+            ));
         }
 
         // Convert token amounts to f64 accounting for decimals
-        let base_amount = self.pool_base_token_amount as f64 / 10f64.powi(self.base_decimals as i32);
-        let quote_amount = self.pool_quote_token_amount as f64 / 10f64.powi(self.quote_decimals as i32);
+        let base_amount =
+            self.pool_base_token_amount as f64 / 10f64.powi(self.base_decimals as i32);
+        let quote_amount =
+            self.pool_quote_token_amount as f64 / 10f64.powi(self.quote_decimals as i32);
 
         if base_amount == 0.0 {
-            return Err(SolanaError::PoolParsingError("Calculated base amount is zero".to_string()));
+            return Err(SolanaError::PoolParsingError(
+                "Calculated base amount is zero".to_string(),
+            ));
         }
 
         Ok(quote_amount / base_amount)
@@ -528,7 +534,8 @@ impl SolanaClient {
             .ok_or(SolanaError::InvalidAccountData)?;
 
         // Decode base64 data
-        let decoded_data = BASE64_STANDARD.decode(account_data)
+        let decoded_data = BASE64_STANDARD
+            .decode(account_data)
             .map_err(|e| SolanaError::PoolParsingError(format!("Base64 decode error: {}", e)))?;
 
         // Try to deserialize as Raydium pool state
@@ -544,7 +551,7 @@ impl SolanaClient {
         // Validate that this is an active pool
         if !pool_state.is_active() {
             return Err(SolanaError::PoolParsingError(
-                "Pool is not active".to_string()
+                "Pool is not active".to_string(),
             ));
         }
 
@@ -565,7 +572,7 @@ impl SolanaClient {
         // This is a simplified extraction focusing on the pool reserves
         if data.len() < 400 {
             return Err(SolanaError::PoolParsingError(
-                "Account data too short for pool state".to_string()
+                "Account data too short for pool state".to_string(),
             ));
         }
 
@@ -576,7 +583,7 @@ impl SolanaClient {
 
         if data.len() < quote_amount_offset + 8 {
             return Err(SolanaError::PoolParsingError(
-                "Insufficient data for token amounts".to_string()
+                "Insufficient data for token amounts".to_string(),
             ));
         }
 
@@ -605,7 +612,7 @@ impl SolanaClient {
 
         if base_amount == 0 {
             return Err(SolanaError::PoolParsingError(
-                "Base token amount is zero".to_string()
+                "Base token amount is zero".to_string(),
             ));
         }
 
@@ -622,7 +629,7 @@ impl SolanaClient {
 
         if base_amount_f64 == 0.0 {
             return Err(SolanaError::PoolParsingError(
-                "Calculated base amount is zero".to_string()
+                "Calculated base amount is zero".to_string(),
             ));
         }
 
@@ -630,9 +637,10 @@ impl SolanaClient {
 
         // Sanity check - SOL price should be reasonable (between $10 and $1000)
         if price < 10.0 || price > 1000.0 {
-            return Err(SolanaError::PoolParsingError(
-                format!("Calculated price {} seems unreasonable", price)
-            ));
+            return Err(SolanaError::PoolParsingError(format!(
+                "Calculated price {} seems unreasonable",
+                price
+            )));
         }
 
         Ok(PriceUpdate::new(
@@ -704,11 +712,17 @@ mod tests {
     fn test_pool_addresses() {
         let client = SolanaClient::with_default(TradingPair::SolUsdt).unwrap();
         assert!(client.get_pool_address().is_ok());
-        assert_eq!(client.get_pool_address().unwrap(), "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX");
+        assert_eq!(
+            client.get_pool_address().unwrap(),
+            "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX"
+        );
 
         let client2 = SolanaClient::with_default(TradingPair::SolUsdc).unwrap();
         assert!(client2.get_pool_address().is_ok());
-        assert_eq!(client2.get_pool_address().unwrap(), "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2");
+        assert_eq!(
+            client2.get_pool_address().unwrap(),
+            "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2"
+        );
     }
 
     #[test]

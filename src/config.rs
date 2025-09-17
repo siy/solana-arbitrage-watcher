@@ -165,7 +165,10 @@ impl ApiKeyConfig {
 
     /// Check if any API keys are configured
     pub fn has_keys(&self) -> bool {
-        self.helius.is_some() || self.quicknode.is_some() || self.alchemy.is_some() || self.genesisgo.is_some()
+        self.helius.is_some()
+            || self.quicknode.is_some()
+            || self.alchemy.is_some()
+            || self.genesisgo.is_some()
     }
 }
 
@@ -280,7 +283,12 @@ impl Config {
         if let Some(ref api_key) = api_keys.quicknode {
             // QuickNode format: wss://[your-endpoint].solana-mainnet.quiknode.pro/[your-token]/
             // For this example, we'll use a placeholder that users need to customize
-            if let Ok(url) = format!("wss://example-endpoint.solana-mainnet.quiknode.pro/{}/", api_key).parse() {
+            if let Ok(url) = format!(
+                "wss://example-endpoint.solana-mainnet.quiknode.pro/{}/",
+                api_key
+            )
+            .parse()
+            {
                 providers.push(RpcProvider {
                     name: "QuickNode (Authenticated)".to_string(),
                     websocket_url: url,
