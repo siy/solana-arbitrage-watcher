@@ -372,8 +372,8 @@ impl std::fmt::Debug for RpcProvider {
             // For QuickNode/GenesisGo, redact last path segment
             match provider_type {
                 RpcProviderType::QuickNode | RpcProviderType::GenesisGo => {
-                    if let Some(path_segments) = url.path_segments() {
-                        if let Some(last) = path_segments.last() {
+                    if let Some(mut path_segments) = url.path_segments() {
+                        if let Some(last) = path_segments.next_back() {
                             return s.replace(last, "***");
                         }
                     }

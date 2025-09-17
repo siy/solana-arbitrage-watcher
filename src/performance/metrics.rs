@@ -19,9 +19,11 @@ pub struct PerformanceMetrics {
 pub struct PerformanceSummary {
     pub uptime_seconds: u64,
     pub total_opportunities: u64,
+    #[allow(dead_code)]
     pub avg_processing_latency_ms: f64,
     pub solana_msg_rate: f64,
     pub binance_msg_rate: f64,
+    #[allow(dead_code)]
     pub reconnection_count: u64,
 }
 
@@ -40,7 +42,9 @@ pub struct ConnectionStats {
     pub solana_uptime_pct: f64,
     pub binance_uptime_pct: f64,
     pub total_reconnections: u64,
+    #[allow(dead_code)]
     pub avg_reconnect_time_ms: f64,
+    #[allow(dead_code)]
     pub last_connection_failure: Option<DateTime<Utc>>,
 }
 
@@ -129,6 +133,7 @@ impl MetricsCollector {
     }
 
     /// Record a connection reconnection attempt
+    #[allow(dead_code)]
     pub fn record_reconnection(&self) {
         self.reconnection_count.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut start) = self._last_reconnect_start.write() {
@@ -137,6 +142,7 @@ impl MetricsCollector {
     }
 
     /// Record successful reconnection completion
+    #[allow(dead_code)]
     pub fn record_reconnection_complete(&self) {
         if let Ok(start_guard) = self._last_reconnect_start.read() {
             if let Some(start) = *start_guard {
@@ -148,6 +154,7 @@ impl MetricsCollector {
     }
 
     /// Record connection uptime for Solana
+    #[allow(dead_code)]
     pub fn record_solana_uptime(&self, connected_duration: Duration) {
         if let Ok(mut uptime) = self.solana_connection_time.write() {
             *uptime = connected_duration;
@@ -155,6 +162,7 @@ impl MetricsCollector {
     }
 
     /// Record connection uptime for Binance
+    #[allow(dead_code)]
     pub fn record_binance_uptime(&self, connected_duration: Duration) {
         if let Ok(mut uptime) = self.binance_connection_time.write() {
             *uptime = connected_duration;
@@ -208,6 +216,7 @@ impl MetricsCollector {
     }
 
     /// Record a connection failure
+    #[allow(dead_code)]
     pub fn record_connection_failure(&self) {
         if let Ok(mut failures) = self.connection_failures.write() {
             failures.push(Utc::now());

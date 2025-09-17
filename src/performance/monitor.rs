@@ -20,6 +20,7 @@ pub struct MonitorConfig {
     /// Whether to enable performance monitoring (default: true)
     pub enabled: bool,
     /// Whether to log detailed metrics (default: false)
+    #[allow(dead_code)]
     pub detailed_logging: bool,
 }
 
@@ -44,6 +45,7 @@ impl PerformanceMonitor {
     }
 
     /// Create a performance monitor with default settings
+    #[allow(dead_code)]
     pub fn with_defaults() -> Self {
         Self::new(MonitorConfig::default())
     }
@@ -54,6 +56,7 @@ impl PerformanceMonitor {
     }
 
     /// Get current performance metrics snapshot
+    #[allow(dead_code)]
     pub fn get_current_metrics(&self) -> PerformanceMetrics {
         self.metrics.get_metrics()
     }
@@ -198,6 +201,7 @@ impl PerformanceMonitor {
     }
 
     /// Generate a detailed performance report for debugging
+    #[allow(dead_code)]
     pub fn generate_detailed_report(&self) -> String {
         let metrics = self.get_current_metrics();
         let summary = &metrics.summary;
@@ -275,6 +279,7 @@ PERFORMANCE STATUS:
     }
 
     /// Get overall performance status assessment
+    #[allow(dead_code)]
     fn get_performance_status(metrics: &PerformanceMetrics) -> &'static str {
         let processing = &metrics.processing;
         let throughput = &metrics.throughput;
@@ -312,12 +317,14 @@ PERFORMANCE STATUS:
     }
 
     /// Check if monitoring is enabled
+    #[allow(dead_code)]
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
 }
 
 /// Helper trait for timing operations
+#[allow(dead_code)]
 pub trait TimedOperation {
     /// Execute a function and record its execution time to the metrics collector
     fn timed<F, R>(&self, operation: F) -> R
