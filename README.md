@@ -2,6 +2,8 @@
 
 A real-time cryptocurrency arbitrage detection system that monitors price differences between Solana DEXes (Raydium) and centralized exchanges (Binance) to identify profitable trading opportunities.
 
+This software is provided for research and educational purposes only and does not constitute financial advice.
+
 ## Features
 
 - **Real-time monitoring** of SOL/USDT and SOL/USDC prices
@@ -13,7 +15,7 @@ A real-time cryptocurrency arbitrage detection system that monitors price differ
 
 ## Prerequisites
 
-- **Rust 1.70+** - Install from [rustup.rs](https://rustup.rs/)
+- **Rust 1.70+** (MSRV; see rust-toolchain.toml if present) - Install from [rustup.rs](https://rustup.rs/)
 - **Git** - For cloning the repository
 - **Internet connection** - For WebSocket connections to exchanges and RPC providers
 
@@ -35,7 +37,7 @@ cargo test
 
 ## Quick Start
 
-**Important**: Public Solana RPC endpoints have known limitations with WebSocket account subscriptions. The application will connect successfully but may not receive price data, showing "No fresh price data available" errors. For reliable operation, premium RPC providers with API keys are required.
+**Important**: Public Solana RPC endpoints often throttle or limit WebSocket account/program subscriptions. Connections may succeed but updates can be delayed, showing "No fresh price data available". For reliable operation, prefer premium RPC providers with API keys.
 
 ### Basic Usage (Testing Only - Limited Functionality)
 
@@ -43,8 +45,11 @@ cargo test
 # Test application startup and WebSocket connections
 cargo run --release -- --pair sol-usdt --threshold 0.5
 
-# Test with working Solana mainnet endpoint (connections work, data limited)
-cargo run --release -- --pair sol-usdt --threshold 0.5 --rpc-url "wss://api.mainnet-beta.solana.com/"
+# Test with Solana mainnet endpoint (connections work; data may be limited)
+cargo run --release -- --pair sol-usdt --threshold 0.5 --rpc-url wss://api.mainnet-beta.solana.com
+
+# Optional: devnet fallback
+cargo run --release -- --pair sol-usdt --threshold 0.5 --rpc-url wss://api.devnet.solana.com
 ```
 
 **Note**: These commands will establish WebSocket connections but likely show "No fresh price data available" due to public RPC account subscription limitations.
@@ -59,10 +64,14 @@ Set environment variables for your API keys:
 
 ```bash
 export HELIUS_API_KEY="your-helius-api-key-here"
-export QUICKNODE_API_KEY="your-quicknode-token-here"
 export ALCHEMY_API_KEY="your-alchemy-api-key-here"
 export GENESISGO_API_KEY="your-genesisgo-token-here"
+#
+# Note: QuickNode requires a full endpoint URL; pass it via --rpc-url (see below).
 ```
+
+Tip: To avoid storing secrets in shell history, prefer exporting from a `.env` file (with your shell's dotenv loader) or use an interactive prompt:
+`read -s HELIUS_API_KEY && export HELIUS_API_KEY`
 
 Then run the application normally:
 
@@ -78,6 +87,10 @@ Pass API keys directly via command line:
 cargo run --release -- --pair sol-usdt --threshold 1.0 \
   --helius-api-key "your-helius-key" \
   --alchemy-api-key "your-alchemy-key"
+
+# QuickNode example (requires full endpoint URL)
+cargo run --release -- --pair sol-usdt --threshold 1.0 \
+  --rpc-url "wss://<your-qn-endpoint>/<token>/"
 ```
 
 ## Configuration Options
@@ -98,7 +111,7 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
 ### API Key Options
 
 - `--helius-api-key <KEY>` - Helius API key (or set `HELIUS_API_KEY`)
-- `--quicknode-api-key <KEY>` - QuickNode API key (or set `QUICKNODE_API_KEY`)
+- QuickNode: pass your full endpoint via `--rpc-url wss://<your-endpoint>/<token>/` (env var not used)
 - `--alchemy-api-key <KEY>` - Alchemy API key (or set `ALCHEMY_API_KEY`)
 - `--genesisgo-api-key <KEY>` - GenesisGo API key (or set `GENESISGO_API_KEY`)
 
@@ -164,10 +177,10 @@ cargo run --release -- --pair sol-usdt --threshold 0.5
 ### Common Issues
 
 1. **"No fresh price data available"**: Public RPC endpoints have limitations. Use premium API keys for reliable data access.
-2. **Connection failures**: Ensure internet connectivity and try different RPC providers
-3. **API rate limits**: Use premium API keys for higher rate limits
-4. **Compilation errors**: Ensure Rust 1.70+ is installed (`rustc --version`)
-5. **No opportunities found**: Lower the threshold or wait for market conditions
+2. **Connection failures**: Ensure internet connectivity and try different RPC providers.
+3. **API rate limits**: Use premium API keys for higher rate limits.
+4. **Compilation errors**: Ensure Rust 1.70+ is installed (`rustc --version`).
+5. **No opportunities found**: Lower the threshold or wait for market conditions.
 
 ### Performance Tips
 
