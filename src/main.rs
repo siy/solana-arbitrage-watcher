@@ -40,6 +40,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Output format: {}", config.output_format);
     // Avoid logging full URLs (may contain credentials/keys)
     info!("RPC providers configured: {}", config.rpc_providers.len());
+    if config.api_keys.has_keys() {
+        info!("Authenticated RPC access enabled");
+    } else {
+        info!("Using public RPC endpoints");
+    }
 
     info!("Starting WebSocket connections...");
 

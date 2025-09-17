@@ -253,6 +253,7 @@ impl Default for SolanaConfig {
                         .parse()
                         .expect("Invalid default RPC URL"),
                     priority: 1,
+                    provider_type: crate::config::RpcProviderType::Helius,
                 },
                 RpcProvider {
                     name: "QuickNode".to_string(),
@@ -260,6 +261,7 @@ impl Default for SolanaConfig {
                         .parse()
                         .expect("Invalid default RPC URL"),
                     priority: 2,
+                    provider_type: crate::config::RpcProviderType::QuickNode,
                 },
             ],
             connection_timeout: Duration::from_secs(10),

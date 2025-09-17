@@ -22,6 +22,22 @@ pub struct RawConfig {
     #[arg(long, env = "SOLANA_RPC_URL")]
     pub rpc_url: Option<Url>,
 
+    /// Helius API key for premium RPC access
+    #[arg(long, env = "HELIUS_API_KEY")]
+    pub helius_api_key: Option<String>,
+
+    /// QuickNode API key for premium RPC access
+    #[arg(long, env = "QUICKNODE_API_KEY")]
+    pub quicknode_api_key: Option<String>,
+
+    /// Alchemy API key for premium RPC access
+    #[arg(long, env = "ALCHEMY_API_KEY")]
+    pub alchemy_api_key: Option<String>,
+
+    /// GenesisGo API key for premium RPC access
+    #[arg(long, env = "GENESISGO_API_KEY")]
+    pub genesisgo_api_key: Option<String>,
+
     /// Output format for displaying results
     #[arg(long, value_enum, default_value = "table")]
     pub output_format: OutputFormat,
@@ -44,6 +60,7 @@ pub struct Config {
     pub rpc_providers: Vec<RpcProvider>,
     pub output_format: OutputFormat,
     pub price_bounds: PriceBounds,
+    pub api_keys: ApiKeyConfig,
 }
 
 /// Validated price bounds for validation
@@ -126,6 +143,32 @@ pub enum TradingPair {
     SolUsdc,
 }
 
+/// API key configuration for RPC providers
+#[derive(Debug, Clone)]
+pub struct ApiKeyConfig {
+    pub helius: Option<String>,
+    pub quicknode: Option<String>,
+    pub alchemy: Option<String>,
+    pub genesisgo: Option<String>,
+}
+
+impl ApiKeyConfig {
+    /// Create from raw configuration
+    pub fn from_raw(raw: &RawConfig) -> Self {
+        Self {
+            helius: raw.helius_api_key.clone(),
+            quicknode: raw.quicknode_api_key.clone(),
+            alchemy: raw.alchemy_api_key.clone(),
+            genesisgo: raw.genesisgo_api_key.clone(),
+        }
+    }
+
+    /// Check if any API keys are configured
+    pub fn has_keys(&self) -> bool {
+        self.helius.is_some() || self.quicknode.is_some() || self.alchemy.is_some() || self.genesisgo.is_some()
+    }
+}
+
 /// RPC provider configuration with failover support
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -133,6 +176,18 @@ pub struct RpcProvider {
     pub name: String,
     pub websocket_url: Url,
     pub priority: u8,
+    pub provider_type: RpcProviderType,
+}
+
+/// Types of RPC providers for different authentication methods
+#[derive(Debug, Clone, PartialEq)]
+pub enum RpcProviderType {
+    Helius,
+    QuickNode,
+    Alchemy,
+    GenesisGo,
+    Custom,
+    Public,
 }
 
 impl Config {
@@ -165,8 +220,11 @@ impl Config {
             }
         };
 
-        // Create RPC providers (no validation needed for URLs since clap already parsed them)
-        let rpc_providers = Self::create_rpc_providers(&raw.rpc_url);
+        // Create API key configuration
+        let api_keys = ApiKeyConfig::from_raw(raw);
+
+        // Create RPC providers with API key support
+        let rpc_providers = Self::create_rpc_providers(&raw.rpc_url, &api_keys);
 
         // Return errors if any, otherwise return valid config
         if !errors.is_empty() {
@@ -180,38 +238,110 @@ impl Config {
             rpc_providers,
             output_format: raw.output_format,
             price_bounds: price_bounds.unwrap(), // Safe because we checked for errors above
+            api_keys,
         })
     }
 
-    /// Create RPC providers based on configuration
-    fn create_rpc_providers(custom_url: &Option<Url>) -> Vec<RpcProvider> {
+    /// Create RPC providers based on configuration with API key support
+    fn create_rpc_providers(custom_url: &Option<Url>, api_keys: &ApiKeyConfig) -> Vec<RpcProvider> {
         if let Some(ref url) = custom_url {
             vec![RpcProvider {
                 name: "Custom".to_string(),
                 websocket_url: url.clone(),
                 priority: 1,
+                provider_type: RpcProviderType::Custom,
             }]
+        } else if api_keys.has_keys() {
+            Self::get_authenticated_providers(api_keys)
         } else {
             Self::get_default_providers()
         }
     }
 
-    /// Get default public RPC providers
+    /// Get authenticated RPC providers using API keys
+    fn get_authenticated_providers(api_keys: &ApiKeyConfig) -> Vec<RpcProvider> {
+        let mut providers = Vec::new();
+        let mut priority = 1;
+
+        // Helius (highest priority if available)
+        if let Some(ref api_key) = api_keys.helius {
+            if let Ok(url) = format!("wss://mainnet.helius-rpc.com/?api-key={}", api_key).parse() {
+                providers.push(RpcProvider {
+                    name: "Helius (Authenticated)".to_string(),
+                    websocket_url: url,
+                    priority,
+                    provider_type: RpcProviderType::Helius,
+                });
+                priority += 1;
+            }
+        }
+
+        // QuickNode (custom endpoint format)
+        if let Some(ref api_key) = api_keys.quicknode {
+            // QuickNode format: wss://[your-endpoint].solana-mainnet.quiknode.pro/[your-token]/
+            // For this example, we'll use a placeholder that users need to customize
+            if let Ok(url) = format!("wss://example-endpoint.solana-mainnet.quiknode.pro/{}/", api_key).parse() {
+                providers.push(RpcProvider {
+                    name: "QuickNode (Authenticated)".to_string(),
+                    websocket_url: url,
+                    priority,
+                    provider_type: RpcProviderType::QuickNode,
+                });
+                priority += 1;
+            }
+        }
+
+        // Alchemy
+        if let Some(ref api_key) = api_keys.alchemy {
+            if let Ok(url) = format!("wss://solana-mainnet.g.alchemy.com/v2/{}", api_key).parse() {
+                providers.push(RpcProvider {
+                    name: "Alchemy (Authenticated)".to_string(),
+                    websocket_url: url,
+                    priority,
+                    provider_type: RpcProviderType::Alchemy,
+                });
+                priority += 1;
+            }
+        }
+
+        // GenesisGo (Triton/Shadow)
+        if let Some(ref api_key) = api_keys.genesisgo {
+            if let Ok(url) = format!("wss://triton.genesysgo.net/{}", api_key).parse() {
+                providers.push(RpcProvider {
+                    name: "GenesisGo Triton (Authenticated)".to_string(),
+                    websocket_url: url,
+                    priority,
+                    provider_type: RpcProviderType::GenesisGo,
+                });
+            }
+        }
+
+        // Fallback to public providers if no authenticated providers were created
+        if providers.is_empty() {
+            providers = Self::get_default_providers();
+        }
+
+        providers
+    }
+
+    /// Get default public RPC providers as fallback
     fn get_default_providers() -> Vec<RpcProvider> {
         vec![
             RpcProvider {
-                name: "Helius".to_string(),
-                websocket_url: "wss://mainnet.helius-rpc.com"
+                name: "Public Solana".to_string(),
+                websocket_url: "wss://api.mainnet-beta.solana.com"
                     .parse()
                     .expect("Invalid default RPC URL"),
                 priority: 1,
+                provider_type: RpcProviderType::Public,
             },
             RpcProvider {
-                name: "QuickNode".to_string(),
-                websocket_url: "wss://mainnet.solana.com"
+                name: "Project Serum".to_string(),
+                websocket_url: "wss://solana-api.projectserum.com"
                     .parse()
                     .expect("Invalid default RPC URL"),
                 priority: 2,
+                provider_type: RpcProviderType::Public,
             },
         ]
     }
