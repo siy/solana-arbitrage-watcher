@@ -134,14 +134,18 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
 ### JSON Format
 ```json
 {
-  "trading_pair": "SOL/USDT",
-  "buy_source": "Solana",
-  "sell_source": "Binance",
+  "type": "arbitrage_opportunity",
+  "trading_pair": "sol/usdt",
+  "buy_source": "solana",
+  "sell_source": "binance",
   "buy_price": 195.45,
   "sell_price": 197.23,
-  "spread_percentage": 0.91,
+  "raw_profit_per_unit": 1.78,
+  "net_profit_per_unit": 0.89,
   "profit_percentage": 0.45,
-  "estimated_profit": 0.89,
+  "total_fees_per_unit": 0.89,
+  "recommended_amount": 100.0,
+  "estimated_total_profit": 89.0,
   "timestamp": "2024-01-15T14:30:22Z"
 }
 ```
