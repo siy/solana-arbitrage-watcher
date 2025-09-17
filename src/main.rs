@@ -1,6 +1,7 @@
 mod arbitrage;
 mod config;
 mod output;
+mod performance;
 mod price;
 mod util;
 mod websocket;
@@ -10,6 +11,7 @@ use clap::Parser;
 use config::{Config, RawConfig};
 use log::{error, info};
 use output::OutputFormatter;
+use performance::{PerformanceMonitor, MonitorConfig};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
@@ -46,6 +48,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Using public RPC endpoints");
     }
 
+    // Initialize performance monitoring
+    let monitor_config = MonitorConfig {
+        reporting_interval: Duration::from_secs(60),
+        enabled: true,
+        detailed_logging: false,
+    };
+    let performance_monitor = PerformanceMonitor::new(monitor_config);
+    let metrics = performance_monitor.metrics();
+
+    info!("Starting performance monitoring...");
+    performance_monitor.start_monitoring().await;
+
     info!("Starting WebSocket connections...");
 
     // Create WebSocket connection manager
@@ -68,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let detection_handle = {
         let mut detector = arbitrage_detector;
         let trading_pair = config.pair;
+        let metrics_clone = Arc::clone(&metrics);
 
         tokio::spawn(async move {
             let mut detection_interval = tokio::time::interval(Duration::from_secs(1));
@@ -75,20 +90,46 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 detection_interval.tick().await;
 
-                match detector.check_for_opportunities().await {
+                // Record arbitrage detection timing
+                let detection_start = std::time::Instant::now();
+                let result = detector.check_for_opportunities().await;
+                let detection_duration = detection_start.elapsed();
+                metrics_clone.record_arbitrage_time(detection_duration);
+
+                match result {
                     Ok(Some(opportunity)) => {
-                        println!("{}", formatter.format_opportunity(&opportunity));
+                        metrics_clone.record_opportunity();
+
+                        // Record output formatting timing
+                        let output_start = std::time::Instant::now();
+                        let formatted_output = formatter.format_opportunity(&opportunity);
+                        let output_duration = output_start.elapsed();
+                        metrics_clone.record_output_time(output_duration);
+
+                        println!("{}", formatted_output);
                         println!();
                     }
                     Ok(None) => {
                         // Only show "no opportunities" message periodically to avoid spam
                         if detector.stats().total_checks % 60 == 0 {
-                            println!("{}", formatter.format_no_opportunities(trading_pair));
+                            let output_start = std::time::Instant::now();
+                            let formatted_output = formatter.format_no_opportunities(trading_pair);
+                            let output_duration = output_start.elapsed();
+                            metrics_clone.record_output_time(output_duration);
+
+                            println!("{}", formatted_output);
                             println!();
                         }
                     }
                     Err(e) => {
-                        println!("{}", formatter.format_error(&e.to_string()));
+                        metrics_clone.record_error();
+
+                        let output_start = std::time::Instant::now();
+                        let formatted_output = formatter.format_error(&e.to_string());
+                        let output_duration = output_start.elapsed();
+                        metrics_clone.record_output_time(output_duration);
+
+                        println!("{}", formatted_output);
                         println!();
                     }
                 }

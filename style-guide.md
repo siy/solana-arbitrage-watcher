@@ -23,6 +23,8 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Add CLI flag for output format instead of hard-coding `OutputFormat::default()` in `main.rs`.
 - Replace scattered `#[allow(dead_code)]` with either usage or `#[cfg(test)]` guards, or remove the code.
 - Ensure graceful shutdown of WebSocket tasks when Ctrl+C is received (currently only detection loop aborts).
+- Fix build-breakers promptly: `mod util;` is referenced but `src/util` does not exist. Add `src/util/mod.rs` with `format_price_source`, `format_trading_pair`, and `round_to_precision`, or inline them where used.
+- Do not synthesize provider URLs from tokens that are insufficient (e.g., QuickNode placeholder). Require full endpoint via `--rpc-url` or a provider-specific `--provider-url` when the scheme cannot be derived from a token.
 
 ## Configuration
 - Parse with `clap` to a raw struct, then validate into a “safe” `Config`.
@@ -38,6 +40,8 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - `output::formatter` controls only final user-facing messages (opportunities / periodic summaries).
 - Do not mix logs and formatted output in the same function.
 - No emojis. Keep messages short, precise, and machine-greppable.
+- Secrets & keys: never log API keys or full provider URLs containing credentials. Prefer logging provider count and types only.
+- Prefer a consistent log invocation style project-wide: either `use log::{info,warn,error,...};` and call `info!(...)` or always use `log::info!(...)`. Avoid mixing styles within the same module.
 
 ## Concurrency & Shutdown
 - Don’t hold blocking locks across `.await` points.
@@ -45,6 +49,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Provide explicit shutdown handles:
   - `ConnectionManager::start` should return task handles or a `Shutdown` handle to stop clients cleanly on Ctrl+C.
   - Propagate join failures as errors up to `main` or log at error level.
+- Consider `tokio::select!` to drive detection and listen for shutdown in a single task rather than spawn + abort.
 
 ## WebSocket Clients
 - Keep clients pure and side-effect free except for: (1) producing `PriceUpdate`, (2) reconnection decisions.
@@ -58,7 +63,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - `PriceUpdate` is the sole ingress format; keep it stable and well-documented.
 - Validate prices once in `PriceProcessor`:
   - Freshness bounds from `Config`.
-  - Value bounds configurable (move `min_price_bound`/`max_price_bound` to config or constants file).
+  - Value bounds configurable (use `Config.price_bounds` not hard-coded numbers).
 - `PriceCache` is the minimal thread-safe store of the latest values. Keep it lean; no policy.
 - Avoid duplicated helpers across modules (e.g., trading pair display, rounding, time formatting). Consolidate helpers in one place (e.g., `output::util` or `price::util`).
 
@@ -80,6 +85,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Prefer deterministic tests; avoid time-based flakiness (use injected clocks or small virtualized intervals).
 - Remove `#[allow(dead_code)]` patterns by making helpers `#[cfg(test)]` or moving into test modules.
 - Test policy boundaries: freshness, validation ranges, threshold checks, reconnection caps.
+- Keep tests quiet: avoid `println!` in tests unless debugging; prefer assertions. If logging is useful, initialize with `env_logger::builder().is_test(true).try_init()` and use log macros.
 
 ## Naming & API Surface
 - Public types and functions require concise doc comments describing contract and failure modes.
@@ -97,6 +103,12 @@ This guide codifies conventions and practical recommendations to keep the codeba
 ## File/Module Hygiene
 - No empty modules or placeholder files. Delete unused modules during refactors.
 - Shared constants and helpers belong in dedicated `util.rs` where cross-module usage is justified.
+- If a module is referenced (e.g., `util::{format_price_source, format_trading_pair, round_to_precision}`), ensure it exists and is tested, or inline helpers locally until the module lands.
+
+## Dependencies Hygiene
+- Keep `Cargo.toml` minimal. Remove unused crates (e.g., add `borsh`/`base64` only when code uses them).
+- Enable features only as needed (e.g., `tokio-tungstenite` TLS features).
+- Run `cargo udeps` periodically to catch unused dependencies (optional, local tooling).
 
 ## CLI & UX
 - Add flags for:
@@ -126,4 +138,3 @@ This guide codifies conventions and practical recommendations to keep the codeba
   - on Ctrl+C: stop detector and shutdown WebSocket tasks
 
 Adhering to these practices will keep the codebase straightforward, maintainable, and predictable as new functionality lands.
-
