@@ -1,4 +1,5 @@
 use crate::config::TradingPair;
+use log::error;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -198,11 +199,11 @@ impl PriceCache {
         match update.source {
             PriceSource::Solana => match self.solana_price.write() {
                 Ok(mut price) => *price = Some(source_price),
-                Err(_) => eprintln!("Failed to acquire write lock for Solana price"),
+                Err(_) => error!("Failed to acquire write lock for Solana price"),
             },
             PriceSource::Binance => match self.binance_price.write() {
                 Ok(mut price) => *price = Some(source_price),
-                Err(_) => eprintln!("Failed to acquire write lock for Binance price"),
+                Err(_) => error!("Failed to acquire write lock for Binance price"),
             },
         }
     }
@@ -241,7 +242,7 @@ impl PriceCache {
                     *s = None;
                 }
             }
-            Err(_) => eprintln!("Failed to acquire write lock for Solana price during cleanup"),
+            Err(_) => error!("Failed to acquire write lock for Solana price during cleanup"),
         }
         match self.binance_price.write() {
             Ok(mut b) => {
@@ -249,7 +250,7 @@ impl PriceCache {
                     *b = None;
                 }
             }
-            Err(_) => eprintln!("Failed to acquire write lock for Binance price during cleanup"),
+            Err(_) => error!("Failed to acquire write lock for Binance price during cleanup"),
         }
     }
 }

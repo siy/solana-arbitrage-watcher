@@ -91,7 +91,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Wait for shutdown signal (Ctrl+C)
-    println!("Monitoring for arbitrage opportunities... (Press Ctrl+C to stop)");
+    info!("Monitoring for arbitrage opportunities... (Press Ctrl+C to stop)");
     signal::ctrl_c().await?;
 
     info!("Shutdown signal received, stopping...");

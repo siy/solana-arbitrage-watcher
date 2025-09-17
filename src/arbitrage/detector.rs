@@ -1,6 +1,7 @@
 use crate::arbitrage::calculator::{ArbitrageOpportunity, CalculatorError, FeeCalculator};
 use crate::config::{Config, ProfitThreshold, TradingPair};
 use crate::price::{PriceCache, PriceProcessor, ProcessorError, ValidatedPricePair};
+use log::{error, info};
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
@@ -173,11 +174,11 @@ impl ArbitrageDetector {
         let start_time = Instant::now();
         let mut check_interval = interval(self.check_interval);
 
-        println!(
+        info!(
             "Starting arbitrage detection for {:?}...",
             self.trading_pair
         );
-        println!("Profit threshold: {:.2}%", self.profit_threshold.value());
+        info!("Profit threshold: {:.2}%", self.profit_threshold.value());
 
         loop {
             if !self.is_running {
@@ -207,7 +208,7 @@ impl ArbitrageDetector {
                     continue;
                 }
                 Err(e) => {
-                    eprintln!("Detection error: {}", e);
+                    error!("Detection error: {}", e);
                     sleep(Duration::from_millis(1000)).await;
                     continue;
                 }
