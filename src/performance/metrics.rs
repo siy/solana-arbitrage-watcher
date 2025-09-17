@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use log::debug;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
@@ -141,7 +142,7 @@ impl MetricsCollector {
             if let Some(start) = *start_guard {
                 let duration = start.elapsed();
                 // Could track reconnection times for averaging
-                log::debug!("Reconnection completed in {:?}", duration);
+                debug!("Reconnection completed in {:?}", duration);
             }
         }
     }
