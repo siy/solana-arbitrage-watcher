@@ -126,7 +126,8 @@ impl PerformanceMonitor {
             processing.messages_processed,
             processing.errors_encountered,
             if processing.messages_processed > 0 {
-                (processing.errors_encountered as f64 / processing.messages_processed as f64) * 100.0
+                (processing.errors_encountered as f64 / processing.messages_processed as f64)
+                    * 100.0
             } else {
                 0.0
             }
@@ -264,7 +265,8 @@ PERFORMANCE STATUS:
             throughput.current_queue_depth,
             processing.errors_encountered,
             if processing.messages_processed > 0 {
-                (processing.errors_encountered as f64 / processing.messages_processed as f64) * 100.0
+                (processing.errors_encountered as f64 / processing.messages_processed as f64)
+                    * 100.0
             } else {
                 0.0
             },
@@ -417,10 +419,10 @@ mod tests {
 
         // Performance status should be valid
         assert!(
-            status.contains("GOOD") ||
-            status.contains("EXCELLENT") ||
-            status.contains("WARNING") ||
-            status.contains("CRITICAL")
+            status.contains("GOOD")
+                || status.contains("EXCELLENT")
+                || status.contains("WARNING")
+                || status.contains("CRITICAL")
         );
     }
 

@@ -242,9 +242,21 @@ impl MetricsCollector {
         let binance_msgs = self.binance_messages.load(Ordering::Relaxed);
         let total_msgs = solana_msgs + binance_msgs;
 
-        let solana_rate = if uptime > 0 { solana_msgs as f64 / uptime_f64 } else { 0.0 };
-        let binance_rate = if uptime > 0 { binance_msgs as f64 / uptime_f64 } else { 0.0 };
-        let total_rate = if uptime > 0 { total_msgs as f64 / uptime_f64 } else { 0.0 };
+        let solana_rate = if uptime > 0 {
+            solana_msgs as f64 / uptime_f64
+        } else {
+            0.0
+        };
+        let binance_rate = if uptime > 0 {
+            binance_msgs as f64 / uptime_f64
+        } else {
+            0.0
+        };
+        let total_rate = if uptime > 0 {
+            total_msgs as f64 / uptime_f64
+        } else {
+            0.0
+        };
 
         // Opportunities
         let opportunities = self.opportunities_found.load(Ordering::Relaxed);

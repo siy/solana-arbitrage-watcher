@@ -11,7 +11,7 @@ use clap::Parser;
 use config::{Config, RawConfig};
 use log::{error, info};
 use output::OutputFormatter;
-use performance::{PerformanceMonitor, MonitorConfig};
+use performance::{MonitorConfig, PerformanceMonitor};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
