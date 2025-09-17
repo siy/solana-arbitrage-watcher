@@ -636,7 +636,7 @@ impl SolanaClient {
         let price = quote_amount_f64 / base_amount_f64;
 
         // Sanity check - SOL price should be reasonable (between $10 and $1000)
-        if price < 10.0 || price > 1000.0 {
+        if !(10.0..=1000.0).contains(&price) {
             return Err(SolanaError::PoolParsingError(format!(
                 "Calculated price {} seems unreasonable",
                 price
@@ -742,11 +742,13 @@ mod tests {
                 name: "Provider1".to_string(),
                 websocket_url: "wss://provider1.com".parse().unwrap(),
                 priority: 1,
+                provider_type: crate::config::RpcProviderType::Public,
             },
             RpcProvider {
                 name: "Provider2".to_string(),
                 websocket_url: "wss://provider2.com".parse().unwrap(),
                 priority: 2,
+                provider_type: crate::config::RpcProviderType::Public,
             },
         ];
 
