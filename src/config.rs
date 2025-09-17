@@ -144,7 +144,7 @@ pub enum TradingPair {
 }
 
 /// API key configuration for RPC providers
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ApiKeyConfig {
     pub helius: Option<String>,
     pub quicknode: Option<String>,
@@ -172,8 +172,19 @@ impl ApiKeyConfig {
     }
 }
 
+impl std::fmt::Debug for ApiKeyConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiKeyConfig")
+            .field("helius", &self.helius.as_ref().map(|_| "***"))
+            .field("quicknode", &self.quicknode.as_ref().map(|_| "***"))
+            .field("alchemy", &self.alchemy.as_ref().map(|_| "***"))
+            .field("genesisgo", &self.genesisgo.as_ref().map(|_| "***"))
+            .finish()
+    }
+}
+
 /// RPC provider configuration with failover support
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct RpcProvider {
     pub name: String,
@@ -279,25 +290,8 @@ impl Config {
             }
         }
 
-        // QuickNode (custom endpoint format)
-        if let Some(ref api_key) = api_keys.quicknode {
-            // QuickNode format: wss://[your-endpoint].solana-mainnet.quiknode.pro/[your-token]/
-            // For this example, we'll use a placeholder that users need to customize
-            if let Ok(url) = format!(
-                "wss://example-endpoint.solana-mainnet.quiknode.pro/{}/",
-                api_key
-            )
-            .parse()
-            {
-                providers.push(RpcProvider {
-                    name: "QuickNode (Authenticated)".to_string(),
-                    websocket_url: url,
-                    priority,
-                    provider_type: RpcProviderType::QuickNode,
-                });
-                priority += 1;
-            }
-        }
+        // QuickNode requires a full endpoint URL. Do not synthesize from tokens.
+        // Users should pass --rpc-url wss://<their-quicknode-endpoint>/<token>/ to use QuickNode.
 
         // Alchemy
         if let Some(ref api_key) = api_keys.alchemy {
@@ -352,6 +346,48 @@ impl Config {
                 provider_type: RpcProviderType::Public,
             },
         ]
+    }
+}
+
+impl std::fmt::Debug for RpcProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn redact_url(url: &Url, provider_type: &RpcProviderType) -> String {
+            let mut s = url.as_str().to_string();
+            // Redact api-key query parameters
+            if let Some(idx) = s.find("api-key=") {
+                let start = idx + "api-key=".len();
+                let end = s[start..].find('&').map(|i| start + i).unwrap_or(s.len());
+                s.replace_range(start..end, "***");
+                return s;
+            }
+            // Redact path segment after /v2/
+            if s.contains("/v2/") {
+                if let Some(idx) = s.find("/v2/") {
+                    let start = idx + "/v2/".len();
+                    let end = s[start..].find('/').map(|i| start + i).unwrap_or(s.len());
+                    s.replace_range(start..end, "***");
+                    return s;
+                }
+            }
+            // For QuickNode/GenesisGo, redact last path segment
+            match provider_type {
+                RpcProviderType::QuickNode | RpcProviderType::GenesisGo => {
+                    if let Some(path_segments) = url.path_segments() {
+                        if let Some(last) = path_segments.last() {
+                            return s.replace(last, "***");
+                        }
+                    }
+                    s
+                }
+                _ => s,
+            }
+        }
+        f.debug_struct("RpcProvider")
+            .field("name", &self.name)
+            .field("websocket_url", &redact_url(&self.websocket_url, &self.provider_type))
+            .field("priority", &self.priority)
+            .field("provider_type", &self.provider_type)
+            .finish()
     }
 }
 
