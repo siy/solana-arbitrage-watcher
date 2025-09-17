@@ -384,7 +384,10 @@ impl std::fmt::Debug for RpcProvider {
         }
         f.debug_struct("RpcProvider")
             .field("name", &self.name)
-            .field("websocket_url", &redact_url(&self.websocket_url, &self.provider_type))
+            .field(
+                "websocket_url",
+                &redact_url(&self.websocket_url, &self.provider_type),
+            )
             .field("priority", &self.priority)
             .field("provider_type", &self.provider_type)
             .finish()
