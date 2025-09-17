@@ -23,7 +23,7 @@ Clone and build from source:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/solana-arbitrage-watcher.git
+git clone https://github.com/siy/solana-arbitrage-watcher.git
 cd solana-arbitrage-watcher
 
 # Build the project
@@ -105,7 +105,7 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
 ## Output Examples
 
 ### Table Format (Default)
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Arbitrage Opportunity                    │
 ├─────────────────────────────────────────────────────────────┤
@@ -134,7 +134,7 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
 ```
 
 ### Compact Format
-```
+```text
 [14:30:22] SOL/USDT | Solana: $195.45 | Binance: $197.23 | Spread: 0.91% | Profit: $0.89 (0.45%)
 ```
 
