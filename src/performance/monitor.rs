@@ -14,6 +14,7 @@ pub struct PerformanceMonitor {
 
 /// Configuration for performance monitoring
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct MonitorConfig {
     /// How often to log performance summaries (default: 60 seconds)
     pub reporting_interval: Duration,
@@ -33,6 +34,7 @@ impl Default for MonitorConfig {
     }
 }
 
+#[allow(dead_code)]
 impl PerformanceMonitor {
     /// Create a new performance monitor with the given configuration
     pub fn new(config: MonitorConfig) -> Self {
@@ -317,6 +319,7 @@ PERFORMANCE STATUS:
 }
 
 /// Helper trait for timing operations
+#[allow(dead_code)]
 pub trait TimedOperation {
     /// Execute a function and record its execution time to the metrics collector
     fn timed<F, R>(&self, operation: F) -> R
@@ -437,7 +440,7 @@ mod tests {
 
         // Test metrics retrieval
         let current = monitor.get_current_metrics();
-        assert!(current.summary.uptime_seconds >= 0);
+        assert!(current.summary.uptime_seconds < 86400); // Less than a day for testing
 
         // Test reset
         monitor.reset_metrics();

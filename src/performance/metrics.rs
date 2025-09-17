@@ -15,6 +15,7 @@ pub struct PerformanceMetrics {
 
 /// Overall performance summary
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PerformanceSummary {
     pub uptime_seconds: u64,
     pub total_opportunities: u64,
@@ -35,6 +36,7 @@ pub struct ThroughputStats {
 
 /// Connection reliability statistics
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct ConnectionStats {
     pub solana_uptime_pct: f64,
     pub binance_uptime_pct: f64,
@@ -68,7 +70,7 @@ pub struct MetricsCollector {
     reconnection_count: AtomicU64,
     solana_connection_time: Arc<RwLock<Duration>>,
     binance_connection_time: Arc<RwLock<Duration>>,
-    last_reconnect_start: Arc<RwLock<Option<Instant>>>,
+    _last_reconnect_start: Arc<RwLock<Option<Instant>>>,
 
     // Processing metrics
     processing_times: Arc<RwLock<VecDeque<Duration>>>,
@@ -90,6 +92,7 @@ impl Default for MetricsCollector {
     }
 }
 
+#[allow(dead_code)]
 impl MetricsCollector {
     /// Create a new metrics collector
     pub fn new() -> Self {
@@ -101,7 +104,7 @@ impl MetricsCollector {
             reconnection_count: AtomicU64::new(0),
             solana_connection_time: Arc::new(RwLock::new(Duration::ZERO)),
             binance_connection_time: Arc::new(RwLock::new(Duration::ZERO)),
-            last_reconnect_start: Arc::new(RwLock::new(None)),
+            _last_reconnect_start: Arc::new(RwLock::new(None)),
             processing_times: Arc::new(RwLock::new(VecDeque::with_capacity(1000))),
             arbitrage_times: Arc::new(RwLock::new(VecDeque::with_capacity(1000))),
             output_times: Arc::new(RwLock::new(VecDeque::with_capacity(1000))),
@@ -130,14 +133,14 @@ impl MetricsCollector {
     /// Record a connection reconnection attempt
     pub fn record_reconnection(&self) {
         self.reconnection_count.fetch_add(1, Ordering::Relaxed);
-        if let Ok(mut start) = self.last_reconnect_start.write() {
+        if let Ok(mut start) = self._last_reconnect_start.write() {
             *start = Some(Instant::now());
         }
     }
 
     /// Record successful reconnection completion
     pub fn record_reconnection_complete(&self) {
-        if let Ok(start_guard) = self.last_reconnect_start.read() {
+        if let Ok(start_guard) = self._last_reconnect_start.read() {
             if let Some(start) = *start_guard {
                 let duration = start.elapsed();
                 // Could track reconnection times for averaging
@@ -314,7 +317,7 @@ impl MetricsCollector {
 
         // Queue and efficiency
         let queue_depth = self.current_queue_depth.load(Ordering::Relaxed);
-        let max_queue = self.max_queue_depth.load(Ordering::Relaxed);
+        let _max_queue = self.max_queue_depth.load(Ordering::Relaxed);
         let errors = self.processing_errors.load(Ordering::Relaxed);
 
         let efficiency = if total_msgs > 0 {
@@ -448,7 +451,7 @@ mod tests {
 
         assert_eq!(metrics.summary.total_opportunities, 1);
         assert_eq!(metrics.processing.messages_processed, 2);
-        assert!(metrics.summary.uptime_seconds >= 0);
+        assert!(metrics.summary.uptime_seconds < 86400); // Less than a day for testing
     }
 
     #[test]
