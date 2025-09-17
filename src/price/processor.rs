@@ -1,4 +1,5 @@
 use crate::config::{Config, MaxPriceAge};
+use crate::performance::metrics::MetricsCollector;
 use crate::price::{PriceCache, PriceSource, SourcePrice};
 use std::sync::Arc;
 use std::time::Duration;
@@ -99,6 +100,7 @@ pub struct PriceProcessor {
     validation_enabled: bool,
     min_price_bound: f64,
     max_price_bound: f64,
+    metrics: Option<Arc<MetricsCollector>>,
 }
 
 impl PriceProcessor {
@@ -111,6 +113,7 @@ impl PriceProcessor {
             validation_enabled: true,
             min_price_bound: config.price_bounds.min_price,
             max_price_bound: config.price_bounds.max_price,
+            metrics: None,
         }
     }
 
@@ -127,11 +130,21 @@ impl PriceProcessor {
             validation_enabled,
             min_price_bound: 1.0,
             max_price_bound: 10000.0,
+            metrics: None,
         }
+    }
+
+    /// Set metrics collector for performance monitoring
+    #[allow(dead_code)]
+    pub fn with_metrics(mut self, metrics: Arc<MetricsCollector>) -> Self {
+        self.metrics = Some(metrics);
+        self
     }
 
     /// Get validated price pair if available and fresh
     pub fn get_validated_prices(&self) -> Result<ValidatedPricePair, ProcessorError> {
+        let start_time = std::time::Instant::now();
+
         let (solana_price, binance_price) = self
             .price_cache
             .get_both_prices()
@@ -147,7 +160,14 @@ impl PriceProcessor {
             self.validate_price_value(&binance_price)?;
         }
 
-        Ok(ValidatedPricePair::new(solana_price, binance_price))
+        let result = ValidatedPricePair::new(solana_price, binance_price);
+
+        // Record processing time if metrics are available
+        if let Some(metrics) = &self.metrics {
+            metrics.record_processing_time(start_time.elapsed());
+        }
+
+        Ok(result)
     }
 
     /// Wait for fresh price data to become available
@@ -266,6 +286,10 @@ mod tests {
             threshold: 0.5,
             max_price_age_ms: 5000,
             rpc_url: None,
+            helius_api_key: None,
+            quicknode_api_key: None,
+            alchemy_api_key: None,
+            genesisgo_api_key: None,
             output_format: crate::output::OutputFormat::Table,
             min_price: 1.0,
             max_price: 10000.0,
