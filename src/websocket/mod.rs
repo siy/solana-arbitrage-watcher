@@ -3,6 +3,7 @@ pub mod reconnect;
 pub mod solana;
 
 use crate::config::{Config, TradingPair};
+use crate::performance::metrics::MetricsCollector;
 use crate::price::PriceCache;
 use std::sync::Arc;
 use thiserror::Error;
@@ -41,6 +42,7 @@ pub struct ConnectionManager {
     solana_client: SolanaClient,
     price_cache: Arc<PriceCache>,
     trading_pair: TradingPair,
+    metrics: Option<Arc<MetricsCollector>>,
 }
 
 impl ConnectionManager {
@@ -61,6 +63,7 @@ impl ConnectionManager {
             solana_client,
             price_cache,
             trading_pair: config.pair,
+            metrics: None,
         })
     }
 
@@ -71,9 +74,13 @@ impl ConnectionManager {
 
         // Start Binance connection
         let binance_cache = Arc::clone(&price_cache);
+        let binance_metrics = self.metrics.clone();
         let binance_handle: JoinHandle<Result<(), BinanceError>> = tokio::spawn(async move {
             self.binance_client
                 .start(move |price_update| {
+                    if let Some(metrics) = &binance_metrics {
+                        metrics.record_binance_message();
+                    }
                     binance_cache.update(&price_update);
                 })
                 .await
@@ -81,9 +88,13 @@ impl ConnectionManager {
 
         // Start Solana connection
         let solana_cache = Arc::clone(&price_cache);
+        let solana_metrics = self.metrics.clone();
         let solana_handle: JoinHandle<Result<(), SolanaError>> = tokio::spawn(async move {
             self.solana_client
                 .start(move |price_update| {
+                    if let Some(metrics) = &solana_metrics {
+                        metrics.record_solana_message();
+                    }
                     solana_cache.update(&price_update);
                 })
                 .await
@@ -140,6 +151,7 @@ impl ConnectionManager {
             solana_client,
             price_cache,
             trading_pair: config.pair,
+            metrics: None,
         })
     }
 
@@ -153,6 +165,13 @@ impl ConnectionManager {
     #[allow(dead_code)]
     pub fn trading_pair(&self) -> TradingPair {
         self.trading_pair
+    }
+
+    /// Set metrics collector for performance monitoring
+    #[allow(dead_code)]
+    pub fn with_metrics(mut self, metrics: Arc<MetricsCollector>) -> Self {
+        self.metrics = Some(metrics);
+        self
     }
 }
 

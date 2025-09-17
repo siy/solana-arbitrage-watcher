@@ -62,8 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Starting WebSocket connections...");
 
-    // Create WebSocket connection manager
-    let connection_manager = ConnectionManager::new(&config)?;
+    // Create WebSocket connection manager with metrics
+    let connection_manager = ConnectionManager::new(&config)?.with_metrics(Arc::clone(&metrics));
 
     // Start WebSocket connections and get the price cache with shutdown handles
     let (price_cache, binance_handle, solana_handle) = connection_manager.start_with_handles();
@@ -71,9 +71,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create fee calculator with default settings
     let fee_calculator = FeeCalculator::default();
 
-    // Create arbitrage detector
+    // Create arbitrage detector with metrics
     let arbitrage_detector =
-        ArbitrageDetector::new(Arc::clone(&price_cache), &config, fee_calculator);
+        ArbitrageDetector::new(Arc::clone(&price_cache), &config, fee_calculator)
+            .with_metrics(Arc::clone(&metrics));
 
     info!("Price data available, starting arbitrage detection");
     println!();
@@ -95,6 +96,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let result = detector.check_for_opportunities().await;
                 let detection_duration = detection_start.elapsed();
                 metrics_clone.record_arbitrage_time(detection_duration);
+
+                // Update queue depth (simplified - could be enhanced to track actual queue)
+                metrics_clone.set_queue_depth(0);
 
                 match result {
                     Ok(Some(opportunity)) => {

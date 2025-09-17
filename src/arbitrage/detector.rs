@@ -1,5 +1,6 @@
 use crate::arbitrage::calculator::{ArbitrageOpportunity, CalculatorError, FeeCalculator};
 use crate::config::{Config, ProfitThreshold, TradingPair};
+use crate::performance::metrics::MetricsCollector;
 use crate::price::{PriceCache, PriceProcessor, ProcessorError, ValidatedPricePair};
 use log::{error, info};
 use std::sync::Arc;
@@ -155,6 +156,13 @@ impl ArbitrageDetector {
             stats: DetectionStats::default(),
             is_running: false,
         }
+    }
+
+    /// Set metrics collector for performance monitoring
+    #[allow(dead_code)]
+    pub fn with_metrics(mut self, metrics: Arc<MetricsCollector>) -> Self {
+        self.price_processor = self.price_processor.with_metrics(metrics);
+        self
     }
 
     /// Create detector with custom check interval
