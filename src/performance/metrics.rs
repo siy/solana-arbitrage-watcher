@@ -15,7 +15,6 @@ pub struct PerformanceMetrics {
 
 /// Overall performance summary
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct PerformanceSummary {
     pub uptime_seconds: u64,
     pub total_opportunities: u64,
@@ -36,7 +35,6 @@ pub struct ThroughputStats {
 
 /// Connection reliability statistics
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct ConnectionStats {
     pub solana_uptime_pct: f64,
     pub binance_uptime_pct: f64,
@@ -92,7 +90,6 @@ impl Default for MetricsCollector {
     }
 }
 
-#[allow(dead_code)]
 impl MetricsCollector {
     /// Create a new metrics collector
     pub fn new() -> Self {
@@ -360,6 +357,7 @@ impl MetricsCollector {
     }
 
     /// Reset all metrics (useful for testing or periodic resets)
+    #[cfg(test)]
     pub fn reset(&self) {
         self.solana_messages.store(0, Ordering::Relaxed);
         self.binance_messages.store(0, Ordering::Relaxed);

@@ -7,6 +7,8 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Keep behavior explicit and observable; avoid hidden coupling.
 - Prefer small, composable modules with minimal public surface area.
 
+Use this guide as a checklist when touching any file. It captures current pitfalls in the repository and the desired target style to keep the codebase simple and predictable.
+
 ## Repository Conventions
 - Module boundaries:
   - `websocket/*` – external price sources and reconnection logic
@@ -17,6 +19,12 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Keep cross-module dependencies one-way: websocket → price → arbitrage → output. Avoid cycles.
 - One feature per PR; keep diffs small and focused. Delete unused code as part of the feature change.
 
+Layer boundaries must be respected:
+- Sources/WebSockets do not format output; they only produce `PriceUpdate` and logs.
+- Price layer validates and normalizes; it does not decide arbitrage or print.
+- Arbitrage layer computes; it does not log chatty messages, only returns values and optional high-level info logs.
+- Output layer formats; it does not perform logic beyond presentation.
+
 ## Breaking Inconsistencies To Fix (next edits)
 - Remove emojis from all runtime output. CLAUDE/PLAN specify “No emojis”.
 - Route human-friendly info to `stdout` and diagnostics/logs to `stderr` via logging, not `println!`.
@@ -26,12 +34,34 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Fix build-breakers promptly: `mod util;` is referenced but `src/util` does not exist. Add `src/util/mod.rs` with `format_price_source`, `format_trading_pair`, and `round_to_precision`, or inline them where used.
 - Do not synthesize provider URLs from tokens that are insufficient (e.g., QuickNode placeholder). Require full endpoint via `--rpc-url` or a provider-specific `--provider-url` when the scheme cannot be derived from a token.
 
+Additional quick wins:
+- Remove stray `println!` calls in tests (e.g., formatter tests) and rely on assertions.
+- Normalize log macro usage per module (either `use log::info` or `log::info!`, not both).
+- Audit public items and reduce visibility to `pub(crate)` where possible.
+
 ## Configuration
 - Parse with `clap` to a raw struct, then validate into a “safe” `Config`.
 - Expose end-user knobs only through CLI/env; avoid hard-coded policy in modules.
   - Add flags for: `--output-format [table|json|compact]`, `--check-interval-ms`, validation bounds (min/max price), and optional fees.
 - Validation rules live in `config.rs`. Keep ranges centralized and documented.
 - Avoid panics during config build; return `ConfigErrors` aggregating all issues.
+
+## Data & Semantics
+- Spread baseline: choose and document one definition. Current code uses `abs(solana - binance) / binance`.
+  - Keep consistent across modules or switch to mid-price/buy-price; test against edge cases.
+- Profit threshold: based on net profit after fees, divided by buy price (percentage). Keep invariant and test it.
+- Time: prefer `Duration` in APIs and internal state; convert to raw millis only at IO boundaries (CLI, JSON).
+- JSON keys: use lower_snake_case consistently; avoid mixing kebab/kebab-case.
+
+## Constructors & Builders
+- Prefer a single `new(config)` path; add `with_*` modifiers for optional tuning, returning `Self` (builder-like) or accept a dedicated `*Settings` struct.
+- Avoid parallel constructors with overlapping responsibilities (`with_default`, `from_providers`) unless clearly layered.
+- Keep `*Config` structs as data; perform validation in `new()` of the main type.
+
+## Error Types
+- Mark extensible error enums `#[non_exhaustive]` to allow evolution.
+- Include actionable context in messages (provider name/host, pair, bound/threshold values).
+- Tests may use `unwrap()`; production code should not.
 
 ## Logging & Output
 - Adopt a single logging facade consistently:
@@ -42,6 +72,8 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - No emojis. Keep messages short, precise, and machine-greppable.
 - Secrets & keys: never log API keys or full provider URLs containing credentials. Prefer logging provider count and types only.
 - Prefer a consistent log invocation style project-wide: either `use log::{info,warn,error,...};` and call `info!(...)` or always use `log::info!(...)`. Avoid mixing styles within the same module.
+- Keep formatted user-facing output strictly in `OutputFormatter`; other layers return values or log diagnostic context only.
+- Avoid bare `println!()` for spacing; incorporate spacing/separators within formatted strings.
 
 ## Concurrency & Shutdown
 - Don’t hold blocking locks across `.await` points.
@@ -50,6 +82,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
   - `ConnectionManager::start` should return task handles or a `Shutdown` handle to stop clients cleanly on Ctrl+C.
   - Propagate join failures as errors up to `main` or log at error level.
 - Consider `tokio::select!` to drive detection and listen for shutdown in a single task rather than spawn + abort.
+- If using `JoinHandle::abort`, ensure tasks do not hold critical locks; prefer a cooperative shutdown path if later complexity grows (close sockets, flush channels, then return).
 
 ## WebSocket Clients
 - Keep clients pure and side-effect free except for: (1) producing `PriceUpdate`, (2) reconnection decisions.
@@ -66,6 +99,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
   - Value bounds configurable (use `Config.price_bounds` not hard-coded numbers).
 - `PriceCache` is the minimal thread-safe store of the latest values. Keep it lean; no policy.
 - Avoid duplicated helpers across modules (e.g., trading pair display, rounding, time formatting). Consolidate helpers in one place (e.g., `output::util` or `price::util`).
+- Consider injecting a time source (`Clock` trait) for tests to avoid flakiness with `SystemTime::now()`.
 
 ## Arbitrage
 - Keep `FeeCalculator` policy-driven by config (trading fees, gas, default amount). Provide Defaults but let `Config` override.
@@ -74,6 +108,7 @@ This guide codifies conventions and practical recommendations to keep the codeba
   - Have a single loop interval from config.
   - Expose `check_once()` for tests and `run()` for the loop; keep both small.
   - Update and expose a read-only `DetectionStats` snapshot; no internal printing.
+  - Use `Instant`-based timing for internal intervals; avoid `SystemTime` for elapsed checks.
 
 ## Error Handling
 - Each module has a `thiserror` enum for its domain. Use `#[from]` for propagation.
@@ -86,6 +121,8 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Remove `#[allow(dead_code)]` patterns by making helpers `#[cfg(test)]` or moving into test modules.
 - Test policy boundaries: freshness, validation ranges, threshold checks, reconnection caps.
 - Keep tests quiet: avoid `println!` in tests unless debugging; prefer assertions. If logging is useful, initialize with `env_logger::builder().is_test(true).try_init()` and use log macros.
+- Prefer deterministic backoff tests; current jitter is hash-based and deterministic—keep it that way.
+- Add integration tests (under `tests/`) that mock both sources and assert end-to-end formatting and threshold behavior.
 
 ## Naming & API Surface
 - Public types and functions require concise doc comments describing contract and failure modes.
@@ -110,6 +147,51 @@ This guide codifies conventions and practical recommendations to keep the codeba
 - Enable features only as needed (e.g., `tokio-tungstenite` TLS features).
 - Run `cargo udeps` periodically to catch unused dependencies (optional, local tooling).
 
+Candidate removals right now: `borsh`, `base64` (not referenced). Remove unless landing related code.
+
+## Module Checklists
+
+Main (`src/main.rs`)
+- Initialize logging first; never print configuration errors—log them.
+- Do not log secrets or full URLs; log counts and provider types only.
+- Select `OutputFormatter` from CLI-configured `OutputFormat`.
+- Manage task lifetimes explicitly (detector, websockets); on Ctrl+C, stop all cleanly.
+
+Config (`src/config.rs`)
+- Keep `RawConfig` (CLI) → `Config` (validated) separation.
+- Centralize all bounds and defaults here (thresholds, max age, price bounds, intervals, fees if added).
+- Prefer explicit provider URLs for API-keyed providers (don’t guess endpoints from tokens).
+- Keep error aggregation via `ConfigErrors` with actionable messages.
+
+WebSockets (`src/websocket/*`)
+- No `println!`; use `log` macros only.
+- Reconnection policy isolated in `ReconnectHandler`.
+- Clients emit `PriceUpdate` only; no formatting.
+- If adding real Solana parsing, hide mock behind a feature/flag.
+
+Price (`src/price/*`)
+- `PriceCache` only stores latest values; no policy.
+- `PriceProcessor` validates freshness and bounds from `Config`.
+- Avoid holding locks across `.await` boundaries.
+
+Arbitrage (`src/arbitrage/*`)
+- `FeeCalculator` configurable via `Config` (fees, default trade size).
+- `ArbitrageDetector` owns interval, reads from `PriceProcessor`, produces opportunities.
+- Stats struct stays internal to detector; exposed via immutable snapshot.
+
+Output (`src/output/*`)
+- Only presentation logic; no side effects beyond returning strings.
+- Compact JSON for high-frequency output; pretty JSON only for debugging.
+- Include optional per-source timestamps in JSON for traceability (e.g., `solana_ts_ms`, `binance_ts_ms`).
+
+## Pitfalls Detected (as of latest scan)
+- Missing `src/util` module referenced by imports; add it or inline helpers.
+- QuickNode URL synthesized from token (placeholder). Require full endpoint.
+- Mixed log macro styles across modules.
+- Widespread `#[allow(dead_code)]`; replace with `#[cfg(test)]` or remove.
+- Tests contain `println!` (formatter tests). Remove for quiet test runs.
+
+
 ## CLI & UX
 - Add flags for:
   - `--output-format [table|json|compact]`
@@ -118,6 +200,11 @@ This guide codifies conventions and practical recommendations to keep the codeba
   - optional: `--min-price <f64>` / `--max-price <f64>` for validation bounds
   - optional: `--fees-json <path>` to inject fee profiles
 - Respect `stdout` for user-facing summaries/opportunities; `stderr` for logs.
+
+## Docs & Developer Experience
+- Keep README usage examples in sync with CLI flags and defaults.
+- Document environment variables and secrets handling explicitly.
+- Add short module-level docs where public APIs are exposed (what it does, what it returns, failure modes).
 
 ## Migration Checklist (apply as you touch code)
 - Replace `println!`/`eprintln!` with `log` macros in libraries; initialize logger in `main`.
