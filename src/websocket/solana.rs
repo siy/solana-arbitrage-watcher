@@ -1,4 +1,4 @@
-use crate::config::{PriceBounds, RpcProvider, TradingPair};
+use crate::config::{PriceBounds, RpcProvider, TradingPair, DEFAULT_MAX_PRICE, DEFAULT_MIN_PRICE};
 use crate::price::{PriceSource, PriceUpdate};
 use crate::websocket::reconnect::{ReconnectConfig, ReconnectError, ReconnectHandler};
 use base64::prelude::*;
@@ -275,7 +275,8 @@ impl Default for SolanaConfig {
             connection_timeout: Duration::from_secs(10),
             reconnect_config: ReconnectConfig::default(),
             account_address: None,
-            price_bounds: PriceBounds::new(1.0, 10000.0).expect("Valid default price bounds"),
+            price_bounds: PriceBounds::new(DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE)
+                .expect("Valid default price bounds"),
         }
     }
 }
@@ -289,7 +290,8 @@ impl SolanaConfig {
             connection_timeout,
             reconnect_config: ReconnectConfig::default(),
             account_address: None,
-            price_bounds: PriceBounds::new(1.0, 10000.0).expect("Valid default price bounds"),
+            price_bounds: PriceBounds::new(DEFAULT_MIN_PRICE, DEFAULT_MAX_PRICE)
+                .expect("Valid default price bounds"),
         }
     }
 
@@ -768,6 +770,11 @@ mod tests {
         assert_eq!(msg.jsonrpc, "2.0");
         assert_eq!(msg.method, "accountSubscribe");
         assert_eq!(msg.id, 1);
+
+        // Verify that encoding is set to "base64"
+        let params = msg.params.as_array().unwrap();
+        let opts = params[1].as_object().unwrap();
+        assert_eq!(opts.get("encoding").unwrap(), "base64");
     }
 
     #[test]

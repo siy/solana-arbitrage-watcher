@@ -133,6 +133,8 @@ Detected at:      2024-01-15 14:30:22 UTC
 ==================================================
 ```
 
+**Note**: "Total Fees" includes exchange trading fees and Solana gas converted to USD when Solana is involved. Gas is a flat per-trade cost and may be shown amortized per unit in the table view.
+
 ### JSON Format
 ```json
 {

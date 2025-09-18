@@ -64,6 +64,10 @@ pub struct Config {
     pub enable_performance_monitor: bool,
 }
 
+/// Default price bounds constants
+pub const DEFAULT_MIN_PRICE: f64 = 1.0;
+pub const DEFAULT_MAX_PRICE: f64 = 10000.0;
+
 /// Validated price bounds for validation
 #[derive(Debug, Clone, Copy)]
 pub struct PriceBounds {
@@ -95,6 +99,14 @@ impl PriceBounds {
             min_price,
             max_price,
         })
+    }
+
+    /// Create default price bounds
+    pub fn default() -> Self {
+        Self {
+            min_price: DEFAULT_MIN_PRICE,
+            max_price: DEFAULT_MAX_PRICE,
+        }
     }
 }
 
