@@ -158,11 +158,6 @@ impl ConnectionManager {
         })
     }
 
-    /// Get the price cache reference
-    #[allow(dead_code)]
-    pub fn price_cache(&self) -> &Arc<PriceCache> {
-        &self.price_cache
-    }
 
     /// Get trading pair
     #[allow(dead_code)]
@@ -175,6 +170,12 @@ impl ConnectionManager {
     pub fn with_metrics(mut self, metrics: Arc<MetricsCollector>) -> Self {
         self.metrics = Some(metrics);
         self
+    }
+
+    /// Get price cache (for testing)
+    #[allow(dead_code)]
+    pub fn price_cache(&self) -> Arc<PriceCache> {
+        Arc::clone(&self.price_cache)
     }
 }
 

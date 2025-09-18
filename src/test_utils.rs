@@ -26,6 +26,7 @@ pub mod config {
             output_format: OutputFormat::Table,
             min_price: 1.0,
             max_price: 10000.0,
+            enable_performance_monitor: false,
         };
 
         Config::new(&raw).expect("Valid test configuration")

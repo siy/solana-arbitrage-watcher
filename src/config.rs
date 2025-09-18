@@ -45,6 +45,10 @@ pub struct RawConfig {
     /// Maximum valid price for SOL (default: 10000.0)
     #[arg(long, default_value = "10000.0")]
     pub max_price: f64,
+
+    /// Enable performance monitoring and metrics collection
+    #[arg(long, default_value = "false")]
+    pub enable_performance_monitor: bool,
 }
 
 /// Validated application configuration (always valid)
@@ -57,6 +61,7 @@ pub struct Config {
     pub output_format: OutputFormat,
     pub price_bounds: PriceBounds,
     pub api_keys: ApiKeyConfig,
+    pub enable_performance_monitor: bool,
 }
 
 /// Validated price bounds for validation
@@ -244,6 +249,7 @@ impl Config {
             output_format: raw.output_format,
             price_bounds: price_bounds.unwrap(), // Safe because we checked for errors above
             api_keys,
+            enable_performance_monitor: raw.enable_performance_monitor,
         })
     }
 

@@ -691,17 +691,28 @@ impl SolanaClient {
         self.reconnect_handler.attempt_count()
     }
 
-    /// Get elapsed time since first reconnection attempt
+    /// Get trading pair
+    #[allow(dead_code)]
+    pub fn trading_pair(&self) -> TradingPair {
+        self.trading_pair
+    }
+
+    /// Get current provider name (for testing)
+    #[allow(dead_code)]
+    pub fn current_provider_name(&self) -> &str {
+        if self.current_provider_index < self.config.rpc_providers.len() {
+            &self.config.rpc_providers[self.current_provider_index].name
+        } else {
+            "No provider selected"
+        }
+    }
+
+    /// Get reconnection elapsed time (for testing)
     #[allow(dead_code)]
     pub fn reconnect_elapsed_time(&self) -> Option<Duration> {
         self.reconnect_handler.elapsed_time()
     }
 
-    /// Get current provider name
-    #[allow(dead_code)]
-    pub fn current_provider_name(&self) -> &str {
-        &self.get_current_provider().name
-    }
 }
 
 #[cfg(test)]

@@ -50,22 +50,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Using public RPC endpoints");
     }
 
-    // Initialize performance monitoring
-    let monitor_config = MonitorConfig {
-        reporting_interval: Duration::from_secs(60),
-        enabled: true,
-        detailed_logging: false,
-    };
-    let performance_monitor = PerformanceMonitor::new(monitor_config);
-    let metrics = performance_monitor.metrics();
+    // Initialize performance monitoring (conditionally)
+    let (_performance_monitor, metrics, connection_manager) = if config.enable_performance_monitor {
+        let monitor_config = MonitorConfig {
+            reporting_interval: Duration::from_secs(60),
+            enabled: true,
+            detailed_logging: false,
+        };
+        let performance_monitor = PerformanceMonitor::new(monitor_config);
+        let metrics = performance_monitor.metrics();
 
-    info!("Starting performance monitoring...");
-    performance_monitor.start_monitoring().await;
+        info!("Starting performance monitoring...");
+        performance_monitor.start_monitoring().await;
+
+        let connection_manager = ConnectionManager::new(&config)?.with_metrics(Arc::clone(&metrics));
+        (Some(performance_monitor), Some(metrics), connection_manager)
+    } else {
+        info!("Performance monitoring disabled");
+        let connection_manager = ConnectionManager::new(&config)?;
+        (None, None, connection_manager)
+    };
 
     info!("Starting WebSocket connections...");
-
-    // Create WebSocket connection manager with metrics
-    let connection_manager = ConnectionManager::new(&config)?.with_metrics(Arc::clone(&metrics));
 
     // Start WebSocket connections and get the price cache with shutdown handles
     let (price_cache, binance_handle, solana_handle) = connection_manager.start_with_handles();
@@ -73,10 +79,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create fee calculator with default settings
     let fee_calculator = FeeCalculator::default();
 
-    // Create arbitrage detector with metrics
-    let arbitrage_detector =
+    // Create arbitrage detector (conditionally with metrics)
+    let arbitrage_detector = if let Some(ref metrics) = metrics {
         ArbitrageDetector::new(Arc::clone(&price_cache), &config, fee_calculator)
-            .with_metrics(Arc::clone(&metrics));
+            .with_metrics(Arc::clone(metrics))
+    } else {
+        ArbitrageDetector::new(Arc::clone(&price_cache), &config, fee_calculator)
+    };
 
     info!("Price data available, starting arbitrage detection");
     println!();
@@ -85,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let detection_handle = {
         let mut detector = arbitrage_detector;
         let trading_pair = config.pair;
-        let metrics_clone = Arc::clone(&metrics);
+        let metrics_clone = metrics.clone();
 
         tokio::spawn(async move {
             let mut detection_interval = tokio::time::interval(Duration::from_secs(1));
@@ -93,24 +102,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 detection_interval.tick().await;
 
-                // Record arbitrage detection timing
+                // Record arbitrage detection timing (if metrics enabled)
                 let detection_start = std::time::Instant::now();
                 let result = detector.check_for_opportunities().await;
                 let detection_duration = detection_start.elapsed();
-                metrics_clone.record_arbitrage_time(detection_duration);
 
-                // Update queue depth (simplified - could be enhanced to track actual queue)
-                metrics_clone.set_queue_depth(0);
+                if let Some(ref metrics) = metrics_clone {
+                    metrics.record_arbitrage_time(detection_duration);
+                    metrics.set_queue_depth(0);
+                }
 
                 match result {
                     Ok(Some(opportunity)) => {
-                        metrics_clone.record_opportunity();
+                        if let Some(ref metrics) = metrics_clone {
+                            metrics.record_opportunity();
+                        }
 
-                        // Record output formatting timing
+                        // Record output formatting timing (if metrics enabled)
                         let output_start = std::time::Instant::now();
                         let formatted_output = formatter.format_opportunity(&opportunity);
                         let output_duration = output_start.elapsed();
-                        metrics_clone.record_output_time(output_duration);
+
+                        if let Some(ref metrics) = metrics_clone {
+                            metrics.record_output_time(output_duration);
+                        }
 
                         println!("{}", formatted_output);
                         println!();
@@ -121,19 +136,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             let output_start = std::time::Instant::now();
                             let formatted_output = formatter.format_no_opportunities(trading_pair);
                             let output_duration = output_start.elapsed();
-                            metrics_clone.record_output_time(output_duration);
+
+                            if let Some(ref metrics) = metrics_clone {
+                                metrics.record_output_time(output_duration);
+                            }
 
                             println!("{}", formatted_output);
                             println!();
                         }
                     }
                     Err(e) => {
-                        metrics_clone.record_error();
+                        if let Some(ref metrics) = metrics_clone {
+                            metrics.record_error();
+                        }
 
                         let output_start = std::time::Instant::now();
                         let formatted_output = formatter.format_error(&e.to_string());
                         let output_duration = output_start.elapsed();
-                        metrics_clone.record_output_time(output_duration);
+
+                        if let Some(ref metrics) = metrics_clone {
+                            metrics.record_output_time(output_duration);
+                        }
 
                         println!("{}", formatted_output);
                         println!();
