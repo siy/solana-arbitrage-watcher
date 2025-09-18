@@ -329,26 +329,10 @@ impl ArbitrageDetector {
 mod tests {
     use super::*;
     use crate::arbitrage::calculator::FeeCalculator;
-    use crate::config::{Config, RawConfig, TradingPair};
+    use crate::config::TradingPair;
     use crate::price::{PriceCache, PriceSource, PriceUpdate};
+    use crate::test_utils::config::{create_high_threshold_test_config as create_test_config, create_low_threshold_test_config};
     use std::sync::Arc;
-
-    fn create_test_config() -> Config {
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 1.0, // 1% threshold
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        Config::new(&raw).unwrap()
-    }
 
     fn create_test_price_cache_with_arbitrage() -> Arc<PriceCache> {
         let cache = Arc::new(PriceCache::new());
@@ -443,20 +427,7 @@ mod tests {
     #[tokio::test]
     async fn test_wait_for_opportunity_success() {
         // Use a lower threshold for this test to make success more likely
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 0.01, // Very low threshold (0.01%)
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        let config = Config::new(&raw).unwrap();
+        let config = create_low_threshold_test_config();
         let cache = create_test_price_cache_with_arbitrage(); // Pre-populated cache
         let fee_calculator = FeeCalculator::default();
 

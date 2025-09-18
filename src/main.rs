@@ -3,6 +3,8 @@ mod config;
 mod output;
 mod performance;
 mod price;
+#[cfg(test)]
+mod test_utils;
 mod util;
 mod websocket;
 

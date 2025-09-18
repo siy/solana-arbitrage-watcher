@@ -1,4 +1,4 @@
-use crate::config::{RpcProvider, TradingPair};
+use crate::config::{PriceBounds, RpcProvider, TradingPair};
 use crate::price::{PriceSource, PriceUpdate};
 use crate::websocket::reconnect::{ReconnectConfig, ReconnectError, ReconnectHandler};
 use base64::prelude::*;
@@ -247,6 +247,8 @@ pub struct SolanaConfig {
     pub reconnect_config: ReconnectConfig,
     /// Account address to monitor for price data
     pub account_address: Option<String>,
+    /// Price bounds for validation
+    pub price_bounds: PriceBounds,
 }
 
 impl Default for SolanaConfig {
@@ -254,25 +256,26 @@ impl Default for SolanaConfig {
         Self {
             rpc_providers: vec![
                 RpcProvider {
-                    name: "Helius".to_string(),
-                    websocket_url: "wss://mainnet.helius-rpc.com"
+                    name: "Public Solana (Limited)".to_string(),
+                    websocket_url: "wss://api.mainnet-beta.solana.com/"
                         .parse()
                         .expect("Invalid default RPC URL"),
                     priority: 1,
-                    provider_type: crate::config::RpcProviderType::Helius,
+                    provider_type: crate::config::RpcProviderType::Public,
                 },
                 RpcProvider {
-                    name: "QuickNode".to_string(),
-                    websocket_url: "wss://mainnet.solana.com"
+                    name: "Solana Devnet (Fallback)".to_string(),
+                    websocket_url: "wss://api.devnet.solana.com/"
                         .parse()
                         .expect("Invalid default RPC URL"),
                     priority: 2,
-                    provider_type: crate::config::RpcProviderType::QuickNode,
+                    provider_type: crate::config::RpcProviderType::Public,
                 },
             ],
             connection_timeout: Duration::from_secs(10),
             reconnect_config: ReconnectConfig::default(),
             account_address: None,
+            price_bounds: PriceBounds::new(1.0, 10000.0).expect("Valid default price bounds"),
         }
     }
 }
@@ -286,6 +289,7 @@ impl SolanaConfig {
             connection_timeout,
             reconnect_config: ReconnectConfig::default(),
             account_address: None,
+            price_bounds: PriceBounds::new(1.0, 10000.0).expect("Valid default price bounds"),
         }
     }
 
@@ -300,6 +304,13 @@ impl SolanaConfig {
     #[allow(dead_code)]
     pub fn with_account_address(mut self, address: String) -> Self {
         self.account_address = Some(address);
+        self
+    }
+
+    /// Set price bounds for validation
+    #[allow(dead_code)]
+    pub fn with_price_bounds(mut self, price_bounds: PriceBounds) -> Self {
+        self.price_bounds = price_bounds;
         self
     }
 }
@@ -350,6 +361,18 @@ impl SolanaClient {
         trading_pair: TradingPair,
     ) -> Result<Self, SolanaError> {
         let config = SolanaConfig::new(rpc_providers, Duration::from_secs(10));
+        Self::new(config, trading_pair)
+    }
+
+    /// Create client from RPC providers with price bounds
+    #[allow(dead_code)]
+    pub fn from_providers_with_bounds(
+        rpc_providers: Vec<RpcProvider>,
+        trading_pair: TradingPair,
+        price_bounds: PriceBounds,
+    ) -> Result<Self, SolanaError> {
+        let config = SolanaConfig::new(rpc_providers, Duration::from_secs(10))
+            .with_price_bounds(price_bounds);
         Self::new(config, trading_pair)
     }
 
@@ -483,7 +506,7 @@ impl SolanaClient {
         let params = serde_json::json!([
             account_address,
             {
-                "encoding": "jsonParsed",
+                "encoding": "base64",
                 "commitment": "confirmed"
             }
         ]);
@@ -635,11 +658,11 @@ impl SolanaClient {
 
         let price = quote_amount_f64 / base_amount_f64;
 
-        // Sanity check - SOL price should be reasonable (between $10 and $1000)
-        if !(10.0..=1000.0).contains(&price) {
+        // Sanity check - SOL price should be within configured bounds
+        if !(self.config.price_bounds.min_price..=self.config.price_bounds.max_price).contains(&price) {
             return Err(SolanaError::PoolParsingError(format!(
-                "Calculated price {} seems unreasonable",
-                price
+                "Calculated price {} outside bounds [{}, {}]",
+                price, self.config.price_bounds.min_price, self.config.price_bounds.max_price
             )));
         }
 

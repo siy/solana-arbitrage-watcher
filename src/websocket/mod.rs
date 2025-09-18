@@ -52,9 +52,12 @@ impl ConnectionManager {
         // Create Binance client with default configuration
         let binance_client = BinanceClient::with_default(config.pair)?;
 
-        // Create Solana client from RPC providers in config
-        let solana_client =
-            SolanaClient::from_providers(config.rpc_providers.clone(), config.pair)?;
+        // Create Solana client from RPC providers in config with price bounds
+        let solana_client = SolanaClient::from_providers_with_bounds(
+            config.rpc_providers.clone(),
+            config.pair,
+            config.price_bounds,
+        )?;
 
         let price_cache = Arc::new(PriceCache::new());
 
@@ -178,24 +181,8 @@ impl ConnectionManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, RawConfig, TradingPair};
-
-    fn create_test_config() -> Config {
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 0.5,
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        Config::new(&raw).unwrap()
-    }
+    use crate::config::TradingPair;
+    use crate::test_utils::config::create_test_config;
 
     #[test]
     fn test_connection_manager_creation() {

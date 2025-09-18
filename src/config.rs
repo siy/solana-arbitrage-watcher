@@ -26,9 +26,6 @@ pub struct RawConfig {
     #[arg(long, env = "HELIUS_API_KEY")]
     pub helius_api_key: Option<String>,
 
-    /// QuickNode API key for premium RPC access
-    #[arg(long, env = "QUICKNODE_API_KEY")]
-    pub quicknode_api_key: Option<String>,
 
     /// Alchemy API key for premium RPC access
     #[arg(long, env = "ALCHEMY_API_KEY")]
@@ -147,7 +144,6 @@ pub enum TradingPair {
 #[derive(Clone)]
 pub struct ApiKeyConfig {
     pub helius: Option<String>,
-    pub quicknode: Option<String>,
     pub alchemy: Option<String>,
     pub genesisgo: Option<String>,
 }
@@ -157,7 +153,6 @@ impl ApiKeyConfig {
     pub fn from_raw(raw: &RawConfig) -> Self {
         Self {
             helius: raw.helius_api_key.clone(),
-            quicknode: raw.quicknode_api_key.clone(),
             alchemy: raw.alchemy_api_key.clone(),
             genesisgo: raw.genesisgo_api_key.clone(),
         }
@@ -166,7 +161,6 @@ impl ApiKeyConfig {
     /// Check if any API keys are configured
     pub fn has_keys(&self) -> bool {
         self.helius.is_some()
-            || self.quicknode.is_some()
             || self.alchemy.is_some()
             || self.genesisgo.is_some()
     }
@@ -176,7 +170,6 @@ impl std::fmt::Debug for ApiKeyConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ApiKeyConfig")
             .field("helius", &self.helius.as_ref().map(|_| "***"))
-            .field("quicknode", &self.quicknode.as_ref().map(|_| "***"))
             .field("alchemy", &self.alchemy.as_ref().map(|_| "***"))
             .field("genesisgo", &self.genesisgo.as_ref().map(|_| "***"))
             .finish()
