@@ -102,6 +102,7 @@ impl PriceBounds {
     }
 
     /// Create default price bounds
+    #[allow(dead_code)]
     pub fn default() -> Self {
         Self {
             min_price: DEFAULT_MIN_PRICE,
