@@ -659,7 +659,9 @@ impl SolanaClient {
         let price = quote_amount_f64 / base_amount_f64;
 
         // Sanity check - SOL price should be within configured bounds
-        if !(self.config.price_bounds.min_price..=self.config.price_bounds.max_price).contains(&price) {
+        if !(self.config.price_bounds.min_price..=self.config.price_bounds.max_price)
+            .contains(&price)
+        {
             return Err(SolanaError::PoolParsingError(format!(
                 "Calculated price {} outside bounds [{}, {}]",
                 price, self.config.price_bounds.min_price, self.config.price_bounds.max_price

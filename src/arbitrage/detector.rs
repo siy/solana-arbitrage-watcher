@@ -331,7 +331,9 @@ mod tests {
     use crate::arbitrage::calculator::FeeCalculator;
     use crate::config::TradingPair;
     use crate::price::{PriceCache, PriceSource, PriceUpdate};
-    use crate::test_utils::config::{create_high_threshold_test_config as create_test_config, create_low_threshold_test_config};
+    use crate::test_utils::config::{
+        create_high_threshold_test_config as create_test_config, create_low_threshold_test_config,
+    };
     use std::sync::Arc;
 
     fn create_test_price_cache_with_arbitrage() -> Arc<PriceCache> {

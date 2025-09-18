@@ -266,9 +266,14 @@ impl FeeCalculator {
         };
 
         // Gas fees (for Solana transactions) - convert SOL to USD
-        let gas_fee_usd = if buy_source == PriceSource::Solana || sell_source == PriceSource::Solana {
+        let gas_fee_usd = if buy_source == PriceSource::Solana || sell_source == PriceSource::Solana
+        {
             // Use the current SOL price to convert gas fee from SOL to USD
-            let sol_price = if buy_source == PriceSource::Solana { buy_price } else { sell_price };
+            let sol_price = if buy_source == PriceSource::Solana {
+                buy_price
+            } else {
+                sell_price
+            };
             self.trading_fees.solana_gas_fee * sol_price
         } else {
             0.0

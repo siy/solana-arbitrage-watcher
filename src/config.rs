@@ -26,7 +26,6 @@ pub struct RawConfig {
     #[arg(long, env = "HELIUS_API_KEY")]
     pub helius_api_key: Option<String>,
 
-
     /// Alchemy API key for premium RPC access
     #[arg(long, env = "ALCHEMY_API_KEY")]
     pub alchemy_api_key: Option<String>,
@@ -160,9 +159,7 @@ impl ApiKeyConfig {
 
     /// Check if any API keys are configured
     pub fn has_keys(&self) -> bool {
-        self.helius.is_some()
-            || self.alchemy.is_some()
-            || self.genesisgo.is_some()
+        self.helius.is_some() || self.alchemy.is_some() || self.genesisgo.is_some()
     }
 }
 
