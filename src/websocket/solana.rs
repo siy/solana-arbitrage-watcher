@@ -712,7 +712,6 @@ impl SolanaClient {
     pub fn reconnect_elapsed_time(&self) -> Option<Duration> {
         self.reconnect_handler.elapsed_time()
     }
-
 }
 
 #[cfg(test)]

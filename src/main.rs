@@ -63,7 +63,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting performance monitoring...");
         performance_monitor.start_monitoring().await;
 
-        let connection_manager = ConnectionManager::new(&config)?.with_metrics(Arc::clone(&metrics));
+        let connection_manager =
+            ConnectionManager::new(&config)?.with_metrics(Arc::clone(&metrics));
         (Some(performance_monitor), Some(metrics), connection_manager)
     } else {
         info!("Performance monitoring disabled");

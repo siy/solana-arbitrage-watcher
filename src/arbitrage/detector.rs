@@ -172,7 +172,6 @@ impl ArbitrageDetector {
         self
     }
 
-
     /// Check for arbitrage opportunities once
     #[allow(dead_code)]
     pub async fn check_for_opportunities(

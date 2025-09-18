@@ -158,7 +158,6 @@ impl ConnectionManager {
         })
     }
 
-
     /// Get trading pair
     #[allow(dead_code)]
     pub fn trading_pair(&self) -> TradingPair {
