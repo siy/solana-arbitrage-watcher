@@ -241,7 +241,7 @@ impl OutputFormatter {
             }
         }
 
-        serde_json::to_string(&json_obj).unwrap_or_else(|_| "{}".to_string())
+        serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// Format price pair in compact format
@@ -278,12 +278,14 @@ impl OutputFormatter {
     pub fn format_error(&self, error: &str) -> String {
         match self.format {
             OutputFormat::Table => format!("ERROR: {}\n{}", error, "!".repeat(error.len() + 7)),
-            OutputFormat::Json => json!({
-                "type": "error",
-                "message": error,
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            })
-            .to_string(),
+            OutputFormat::Json => {
+                let json_obj = json!({
+                    "type": "error",
+                    "message": error,
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                });
+                serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string())
+            }
             OutputFormat::Compact => format!("ERROR: {}", error),
         }
     }
@@ -403,8 +405,8 @@ mod tests {
         let output = formatter.format_error("Connection failed");
 
         println!("Actual output: {}", output);
-        assert!(output.contains("\"type\":\"error\""));
-        assert!(output.contains("\"message\":\"Connection failed\""));
+        assert!(output.contains("\"type\": \"error\""));
+        assert!(output.contains("\"message\": \"Connection failed\""));
     }
 
     #[test]

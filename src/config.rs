@@ -26,10 +26,6 @@ pub struct RawConfig {
     #[arg(long, env = "HELIUS_API_KEY")]
     pub helius_api_key: Option<String>,
 
-    /// QuickNode API key for premium RPC access
-    #[arg(long, env = "QUICKNODE_API_KEY")]
-    pub quicknode_api_key: Option<String>,
-
     /// Alchemy API key for premium RPC access
     #[arg(long, env = "ALCHEMY_API_KEY")]
     pub alchemy_api_key: Option<String>,
@@ -49,6 +45,10 @@ pub struct RawConfig {
     /// Maximum valid price for SOL (default: 10000.0)
     #[arg(long, default_value = "10000.0")]
     pub max_price: f64,
+
+    /// Enable performance monitoring and metrics collection
+    #[arg(long, default_value = "false")]
+    pub enable_performance_monitor: bool,
 }
 
 /// Validated application configuration (always valid)
@@ -61,7 +61,12 @@ pub struct Config {
     pub output_format: OutputFormat,
     pub price_bounds: PriceBounds,
     pub api_keys: ApiKeyConfig,
+    pub enable_performance_monitor: bool,
 }
+
+/// Default price bounds constants
+pub const DEFAULT_MIN_PRICE: f64 = 1.0;
+pub const DEFAULT_MAX_PRICE: f64 = 10000.0;
 
 /// Validated price bounds for validation
 #[derive(Debug, Clone, Copy)]
@@ -94,6 +99,15 @@ impl PriceBounds {
             min_price,
             max_price,
         })
+    }
+
+    /// Create default price bounds
+    #[allow(dead_code)]
+    pub fn default() -> Self {
+        Self {
+            min_price: DEFAULT_MIN_PRICE,
+            max_price: DEFAULT_MAX_PRICE,
+        }
     }
 }
 
@@ -147,7 +161,6 @@ pub enum TradingPair {
 #[derive(Clone)]
 pub struct ApiKeyConfig {
     pub helius: Option<String>,
-    pub quicknode: Option<String>,
     pub alchemy: Option<String>,
     pub genesisgo: Option<String>,
 }
@@ -157,7 +170,6 @@ impl ApiKeyConfig {
     pub fn from_raw(raw: &RawConfig) -> Self {
         Self {
             helius: raw.helius_api_key.clone(),
-            quicknode: raw.quicknode_api_key.clone(),
             alchemy: raw.alchemy_api_key.clone(),
             genesisgo: raw.genesisgo_api_key.clone(),
         }
@@ -165,10 +177,7 @@ impl ApiKeyConfig {
 
     /// Check if any API keys are configured
     pub fn has_keys(&self) -> bool {
-        self.helius.is_some()
-            || self.quicknode.is_some()
-            || self.alchemy.is_some()
-            || self.genesisgo.is_some()
+        self.helius.is_some() || self.alchemy.is_some() || self.genesisgo.is_some()
     }
 }
 
@@ -176,7 +185,6 @@ impl std::fmt::Debug for ApiKeyConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ApiKeyConfig")
             .field("helius", &self.helius.as_ref().map(|_| "***"))
-            .field("quicknode", &self.quicknode.as_ref().map(|_| "***"))
             .field("alchemy", &self.alchemy.as_ref().map(|_| "***"))
             .field("genesisgo", &self.genesisgo.as_ref().map(|_| "***"))
             .finish()
@@ -197,6 +205,7 @@ pub struct RpcProvider {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RpcProviderType {
     Helius,
+    #[allow(dead_code)] // Kept for backward compatibility in tests
     QuickNode,
     Alchemy,
     GenesisGo,
@@ -253,6 +262,7 @@ impl Config {
             output_format: raw.output_format,
             price_bounds: price_bounds.unwrap(), // Safe because we checked for errors above
             api_keys,
+            enable_performance_monitor: raw.enable_performance_monitor,
         })
     }
 

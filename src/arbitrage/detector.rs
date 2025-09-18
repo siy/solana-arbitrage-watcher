@@ -2,11 +2,11 @@ use crate::arbitrage::calculator::{ArbitrageOpportunity, CalculatorError, FeeCal
 use crate::config::{Config, ProfitThreshold, TradingPair};
 use crate::performance::metrics::MetricsCollector;
 use crate::price::{PriceCache, PriceProcessor, ProcessorError, ValidatedPricePair};
-use log::{error, info};
+use log::error;
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-use tokio::time::{interval, sleep, Instant};
+use tokio::time::{interval, Instant};
 
 /// Errors that can occur during arbitrage detection
 #[derive(Debug, Error)]
@@ -172,63 +172,6 @@ impl ArbitrageDetector {
         self
     }
 
-    /// Start continuous arbitrage detection
-    #[allow(dead_code)]
-    pub async fn start_detection<F>(&mut self, mut callback: F) -> Result<(), DetectorError>
-    where
-        F: FnMut(&ArbitrageOpportunity) + Send,
-    {
-        self.is_running = true;
-        let start_time = Instant::now();
-        let mut check_interval = interval(self.check_interval);
-
-        info!(
-            "Starting arbitrage detection for {:?}...",
-            self.trading_pair
-        );
-        info!("Profit threshold: {:.2}%", self.profit_threshold.value());
-
-        loop {
-            if !self.is_running {
-                break;
-            }
-
-            check_interval.tick().await;
-
-            match self.check_for_opportunities().await {
-                Ok(Some(opportunity)) => {
-                    let meets_threshold = opportunity.exceeds_threshold(&self.profit_threshold);
-                    self.stats.update_opportunity(&opportunity, meets_threshold);
-
-                    if meets_threshold {
-                        callback(&opportunity);
-                    }
-                }
-                Ok(None) => {
-                    // No opportunity found, but still update stats
-                    if let Ok(prices) = self.price_processor.get_validated_prices() {
-                        self.stats.update_check(prices.price_spread_percentage);
-                    }
-                }
-                Err(DetectorError::ProcessorError(ProcessorError::NoFreshData)) => {
-                    // Wait for fresh data to become available
-                    sleep(Duration::from_millis(100)).await;
-                    continue;
-                }
-                Err(e) => {
-                    error!("Detection error: {}", e);
-                    sleep(Duration::from_millis(1000)).await;
-                    continue;
-                }
-            }
-
-            self.stats.update_uptime(start_time);
-        }
-
-        self.is_running = false;
-        Ok(())
-    }
-
     /// Check for arbitrage opportunities once
     #[allow(dead_code)]
     pub async fn check_for_opportunities(
@@ -329,26 +272,12 @@ impl ArbitrageDetector {
 mod tests {
     use super::*;
     use crate::arbitrage::calculator::FeeCalculator;
-    use crate::config::{Config, RawConfig, TradingPair};
+    use crate::config::TradingPair;
     use crate::price::{PriceCache, PriceSource, PriceUpdate};
+    use crate::test_utils::config::{
+        create_high_threshold_test_config as create_test_config, create_low_threshold_test_config,
+    };
     use std::sync::Arc;
-
-    fn create_test_config() -> Config {
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 1.0, // 1% threshold
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        Config::new(&raw).unwrap()
-    }
 
     fn create_test_price_cache_with_arbitrage() -> Arc<PriceCache> {
         let cache = Arc::new(PriceCache::new());
@@ -443,20 +372,7 @@ mod tests {
     #[tokio::test]
     async fn test_wait_for_opportunity_success() {
         // Use a lower threshold for this test to make success more likely
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 0.01, // Very low threshold (0.01%)
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        let config = Config::new(&raw).unwrap();
+        let config = create_low_threshold_test_config();
         let cache = create_test_price_cache_with_arbitrage(); // Pre-populated cache
         let fee_calculator = FeeCalculator::default();
 

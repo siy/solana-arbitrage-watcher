@@ -15,7 +15,7 @@ This software is provided for research and educational purposes only and does no
 
 ## Prerequisites
 
-- **Rust 1.70+** (MSRV; see rust-toolchain.toml if present) - Install from [rustup.rs](https://rustup.rs/)
+- **Rust 1.70+** (MSRV; see `rust-version` in Cargo.toml) - Install from [rustup.rs](https://rustup.rs/)
 - **Git** - For cloning the repository
 - **Internet connection** - For WebSocket connections to exchanges and RPC providers
 
@@ -119,17 +119,21 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
 
 ### Table Format (Default)
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                    Arbitrage Opportunity                    │
-├─────────────────────────────────────────────────────────────┤
-│ Pair:           SOL/USDT                                    │
-│ Buy:            Solana at $195.45                          │
-│ Sell:           Binance at $197.23                         │
-│ Spread:         0.91%                                       │
-│ Est. Profit:    $0.89 (0.45%)                             │
-│ Timestamp:      2024-01-15 14:30:22 UTC                   │
-└─────────────────────────────────────────────────────────────┘
+ARBITRAGE OPPORTUNITY DETECTED
+==================================================
+Buy Source:       Solana @ $195.4500
+Sell Source:      Binance @ $197.2300
+Raw Profit:       $1.7800 per unit
+Net Profit:       $0.8900 per unit
+Profit Margin:    0.45%
+Total Fees:      $0.8900 per unit
+Recommended Amount: 10.0000 SOL
+Est. Total Profit: $8.9000
+Detected at:      2024-01-15 14:30:22 UTC
+==================================================
 ```
+
+**Note**: "Total Fees" includes exchange trading fees and Solana gas converted to USD when Solana is involved. Gas is a flat per-trade cost and may be shown amortized per unit in the table view.
 
 ### JSON Format
 ```json
@@ -144,8 +148,8 @@ cargo run --release -- --pair sol-usdt --threshold 1.0 \
   "net_profit_per_unit": 0.89,
   "profit_percentage": 0.45,
   "total_fees_per_unit": 0.89,
-  "recommended_amount": 100.0,
-  "estimated_total_profit": 89.0,
+  "recommended_amount": 10.0,
+  "estimated_total_profit": 8.9,
   "timestamp": "2024-01-15T14:30:22Z"
 }
 ```
@@ -192,6 +196,11 @@ cargo run --release -- --pair sol-usdt --threshold 0.5
 - Set API keys for better RPC reliability
 - Use `table` format for human reading, `json` for automation
 - Monitor logs with `RUST_LOG=info` for system health
+
+### Technical Notes
+
+- **Solana Pool Parsing**: The system uses simplified heuristic parsing for Raydium pool data with fallback offsets. This provides good coverage for standard pools but may need adjustment for non-standard pool layouts.
+- **Performance Monitoring**: Use `--enable-performance-monitor` to track system metrics and performance statistics
 
 ## License
 

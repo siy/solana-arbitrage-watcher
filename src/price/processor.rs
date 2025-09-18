@@ -277,25 +277,9 @@ impl PriceProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, RawConfig, TradingPair};
+    use crate::config::TradingPair;
     use crate::price::{PriceCache, PriceSource, PriceUpdate, SourcePrice};
-
-    fn create_test_config() -> Config {
-        let raw = RawConfig {
-            pair: TradingPair::SolUsdt,
-            threshold: 0.5,
-            max_price_age_ms: 5000,
-            rpc_url: None,
-            helius_api_key: None,
-            quicknode_api_key: None,
-            alchemy_api_key: None,
-            genesisgo_api_key: None,
-            output_format: crate::output::OutputFormat::Table,
-            min_price: 1.0,
-            max_price: 10000.0,
-        };
-        Config::new(&raw).unwrap()
-    }
+    use crate::test_utils::config::create_test_config;
 
     fn create_test_price_cache() -> Arc<PriceCache> {
         let cache = Arc::new(PriceCache::new());

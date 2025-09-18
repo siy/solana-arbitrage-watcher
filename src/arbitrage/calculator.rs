@@ -265,14 +265,20 @@ impl FeeCalculator {
             0.0
         };
 
-        // Gas fees (for Solana transactions)
-        let gas_fee = if buy_source == PriceSource::Solana || sell_source == PriceSource::Solana {
-            self.trading_fees.solana_gas_fee
-        } else {
-            0.0
-        };
+        // Gas fees (for Solana transactions): flat per trade, amortized per unit
+        let gas_fee_usd_total =
+            if buy_source == PriceSource::Solana || sell_source == PriceSource::Solana {
+                let sol_price = if buy_source == PriceSource::Solana {
+                    buy_price
+                } else {
+                    sell_price
+                };
+                self.trading_fees.solana_gas_fee * sol_price
+            } else {
+                0.0
+            };
 
-        buy_fee + sell_fee + transfer_fee + gas_fee
+        buy_fee + sell_fee + transfer_fee + (gas_fee_usd_total / self.default_trade_amount)
     }
 
     /// Calculate recommended trade amount based on profit and risk
