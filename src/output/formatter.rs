@@ -166,17 +166,30 @@ impl OutputFormatter {
 
     /// Format arbitrage opportunity in compact format
     fn format_opportunity_compact(&self, opportunity: &ArbitrageOpportunity) -> String {
-        format!(
-            "ARBITRAGE {}: Buy {} @ ${:.prec$} -> Sell {} @ ${:.prec$} | Profit: {:.2}% (${:.prec$} total)",
-            format_trading_pair(opportunity.trading_pair),
-            format_price_source(opportunity.buy_source),
-            opportunity.buy_price,
-            format_price_source(opportunity.sell_source),
-            opportunity.sell_price,
-            opportunity.profit_percentage,
-            opportunity.estimated_total_profit,
-            prec = self.precision
-        )
+        if self.show_timestamps {
+            format!(
+                "[{}] {} | Solana: ${:.prec$} | Binance: ${:.prec$} | Spread: {:.2}% | Profit: ${:.prec$} ({:.2}%)",
+                chrono::Utc::now().format("%H:%M:%S"),
+                format_trading_pair(opportunity.trading_pair),
+                if opportunity.buy_source == crate::price::PriceSource::Solana { opportunity.buy_price } else { opportunity.sell_price },
+                if opportunity.buy_source == crate::price::PriceSource::Binance { opportunity.buy_price } else { opportunity.sell_price },
+                ((opportunity.sell_price - opportunity.buy_price) / opportunity.buy_price * 100.0).abs(),
+                opportunity.net_profit_per_unit,
+                opportunity.profit_percentage,
+                prec = self.precision
+            )
+        } else {
+            format!(
+                "{} | Solana: ${:.prec$} | Binance: ${:.prec$} | Spread: {:.2}% | Profit: ${:.prec$} ({:.2}%)",
+                format_trading_pair(opportunity.trading_pair),
+                if opportunity.buy_source == crate::price::PriceSource::Solana { opportunity.buy_price } else { opportunity.sell_price },
+                if opportunity.buy_source == crate::price::PriceSource::Binance { opportunity.buy_price } else { opportunity.sell_price },
+                ((opportunity.sell_price - opportunity.buy_price) / opportunity.buy_price * 100.0).abs(),
+                opportunity.net_profit_per_unit,
+                opportunity.profit_percentage,
+                prec = self.precision
+            )
+        }
     }
 
     /// Format price pair as table
@@ -366,8 +379,11 @@ mod tests {
         let opportunity = create_test_opportunity();
         let output = formatter.format_opportunity(&opportunity);
 
-        assert!(output.contains("ARBITRAGE SOL/USDT: Buy Binance"));
-        assert!(output.contains("Sell Solana"));
+        assert!(output.contains("SOL/USDT"));
+        assert!(output.contains("Solana:"));
+        assert!(output.contains("Binance:"));
+        assert!(output.contains("Spread:"));
+        assert!(output.contains("Profit:"));
         assert!(output.contains("0.38%"));
     }
 
