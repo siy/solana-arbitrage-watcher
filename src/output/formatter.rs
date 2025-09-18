@@ -264,12 +264,14 @@ impl OutputFormatter {
                 format_trading_pair(pair),
                 "-".repeat(40)
             ),
-            OutputFormat::Json => json!({
-                "type": "no_opportunities",
-                "trading_pair": format_trading_pair(pair).to_lowercase(),
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            })
-            .to_string(),
+            OutputFormat::Json => {
+                let json_obj = json!({
+                    "type": "no_opportunities",
+                    "trading_pair": format_trading_pair(pair).to_lowercase(),
+                    "timestamp": chrono::Utc::now().to_rfc3339()
+                });
+                serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string())
+            }
             OutputFormat::Compact => format!("No opportunities: {}", format_trading_pair(pair)),
         }
     }
