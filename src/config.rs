@@ -187,6 +187,7 @@ pub struct RpcProvider {
 #[derive(Debug, Clone, PartialEq)]
 pub enum RpcProviderType {
     Helius,
+    #[allow(dead_code)] // Kept for backward compatibility in tests
     QuickNode,
     Alchemy,
     GenesisGo,
