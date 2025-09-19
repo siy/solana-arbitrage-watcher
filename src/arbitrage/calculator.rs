@@ -289,7 +289,6 @@ impl FeeCalculator {
         (buy_fee + sell_fee + transfer_fee, gas_fee_usd_total)
     }
 
-
     /// Calculate recommended trade amount based on profit and risk
     fn calculate_recommended_amount(&self, _buy_price: f64, net_profit_per_unit: f64) -> f64 {
         // For now, use a simple approach: default amount unless profit is very low
