@@ -286,7 +286,10 @@ impl FeeCalculator {
             };
 
         // Return (per_unit_fees, per_trade_fees)
-        (buy_fee + sell_fee, gas_fee_usd_total + transfer_fee_per_trade)
+        (
+            buy_fee + sell_fee,
+            gas_fee_usd_total + transfer_fee_per_trade,
+        )
     }
 
     /// Calculate recommended trade amount based on profit and risk

@@ -291,7 +291,10 @@ impl OutputFormatter {
                 });
                 if self.show_timestamps {
                     if let serde_json::Value::Object(ref mut map) = json_obj {
-                        map.insert("timestamp".to_string(), json!(chrono::Utc::now().to_rfc3339()));
+                        map.insert(
+                            "timestamp".to_string(),
+                            json!(chrono::Utc::now().to_rfc3339()),
+                        );
                     }
                 }
                 serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string())
