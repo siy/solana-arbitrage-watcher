@@ -213,19 +213,26 @@ impl FeeCalculator {
             return Ok(None);
         }
 
-        // Calculate total fees per unit
-        let total_fees_per_unit =
-            self.calculate_total_fees(buy_price, sell_price, buy_source, sell_source);
+        // Calculate fee breakdown (per_unit_fees, per_trade_fees)
+        let (per_unit_fees, per_trade_fees) =
+            self.calculate_fee_breakdown(buy_price, sell_price, buy_source, sell_source);
 
-        // Calculate net profit after fees
-        let net_profit_per_unit = raw_profit_per_unit - total_fees_per_unit;
+        // Calculate net profit after fees (amortize per-trade gas for per-unit view)
+        let net_profit_per_unit =
+            raw_profit_per_unit - per_unit_fees - (per_trade_fees / self.default_trade_amount);
 
         // Calculate profit percentage based on buy price
         let profit_percentage = (net_profit_per_unit / buy_price) * 100.0;
 
         // Calculate recommended trade amount and total profit
         let recommended_amount = self.calculate_recommended_amount(buy_price, net_profit_per_unit);
-        let estimated_total_profit = net_profit_per_unit * recommended_amount;
+
+        // Accurate total profit: variable per-unit * amount minus flat per-trade
+        let estimated_total_profit =
+            (raw_profit_per_unit - per_unit_fees) * recommended_amount - per_trade_fees;
+
+        // Total fees per unit for display (including amortized gas)
+        let total_fees_per_unit = per_unit_fees + (per_trade_fees / self.default_trade_amount);
 
         Ok(Some(ArbitrageOpportunity {
             buy_source,
@@ -242,14 +249,14 @@ impl FeeCalculator {
         }))
     }
 
-    /// Calculate total fees for a complete arbitrage round trip
-    fn calculate_total_fees(
+    /// Calculate fee breakdown for the arbitrage trade
+    fn calculate_fee_breakdown(
         &self,
         buy_price: f64,
         sell_price: f64,
         buy_source: PriceSource,
         sell_source: PriceSource,
-    ) -> f64 {
+    ) -> (f64, f64) {
         // Buy fee (percentage of buy amount)
         let buy_fee_percentage = self.trading_fees.get_trading_fee(buy_source) / 100.0;
         let buy_fee = buy_price * buy_fee_percentage;
@@ -265,7 +272,7 @@ impl FeeCalculator {
             0.0
         };
 
-        // Gas fees (for Solana transactions): flat per trade, amortized per unit
+        // Gas fees (for Solana transactions): flat per trade
         let gas_fee_usd_total =
             if buy_source == PriceSource::Solana || sell_source == PriceSource::Solana {
                 let sol_price = if buy_source == PriceSource::Solana {
@@ -278,7 +285,21 @@ impl FeeCalculator {
                 0.0
             };
 
-        buy_fee + sell_fee + transfer_fee + (gas_fee_usd_total / self.default_trade_amount)
+        // Return (per_unit_fees, per_trade_fees)
+        (buy_fee + sell_fee + transfer_fee, gas_fee_usd_total)
+    }
+
+    /// Calculate total fees for a complete arbitrage round trip
+    fn calculate_total_fees(
+        &self,
+        buy_price: f64,
+        sell_price: f64,
+        buy_source: PriceSource,
+        sell_source: PriceSource,
+    ) -> f64 {
+        let (per_unit_fees, per_trade_fees) =
+            self.calculate_fee_breakdown(buy_price, sell_price, buy_source, sell_source);
+        per_unit_fees + (per_trade_fees / self.default_trade_amount)
     }
 
     /// Calculate recommended trade amount based on profit and risk
