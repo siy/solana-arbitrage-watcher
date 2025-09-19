@@ -265,8 +265,8 @@ impl FeeCalculator {
         let sell_fee_percentage = self.trading_fees.get_trading_fee(sell_source) / 100.0;
         let sell_fee = sell_price * sell_fee_percentage;
 
-        // Transfer fees (if moving between different platforms)
-        let transfer_fee = if buy_source != sell_source {
+        // Transfer fees (if moving between different platforms): flat per trade
+        let transfer_fee_per_trade = if buy_source != sell_source {
             self.trading_fees.transfer_fee
         } else {
             0.0
@@ -286,7 +286,7 @@ impl FeeCalculator {
             };
 
         // Return (per_unit_fees, per_trade_fees)
-        (buy_fee + sell_fee + transfer_fee, gas_fee_usd_total)
+        (buy_fee + sell_fee, gas_fee_usd_total + transfer_fee_per_trade)
     }
 
     /// Calculate recommended trade amount based on profit and risk
