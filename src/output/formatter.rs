@@ -166,17 +166,37 @@ impl OutputFormatter {
 
     /// Format arbitrage opportunity in compact format
     fn format_opportunity_compact(&self, opportunity: &ArbitrageOpportunity) -> String {
-        format!(
-            "ARBITRAGE {}: Buy {} @ ${:.prec$} -> Sell {} @ ${:.prec$} | Profit: {:.2}% (${:.prec$} total)",
-            format_trading_pair(opportunity.trading_pair),
-            format_price_source(opportunity.buy_source),
-            opportunity.buy_price,
-            format_price_source(opportunity.sell_source),
-            opportunity.sell_price,
-            opportunity.profit_percentage,
-            opportunity.estimated_total_profit,
-            prec = self.precision
-        )
+        // Precompute spread to avoid division by zero
+        let spread_pct = if opportunity.buy_price > 0.0 {
+            ((opportunity.sell_price - opportunity.buy_price) / opportunity.buy_price * 100.0).abs()
+        } else {
+            0.0
+        };
+
+        if self.show_timestamps {
+            format!(
+                "[{}] {} | Solana: ${:.prec$} | Binance: ${:.prec$} | Spread: {:.2}% | Profit: ${:.prec$} ({:.2}%)",
+                chrono::Utc::now().format("%H:%M:%S"),
+                format_trading_pair(opportunity.trading_pair),
+                if opportunity.buy_source == crate::price::PriceSource::Solana { opportunity.buy_price } else { opportunity.sell_price },
+                if opportunity.buy_source == crate::price::PriceSource::Binance { opportunity.buy_price } else { opportunity.sell_price },
+                spread_pct,
+                opportunity.net_profit_per_unit,
+                opportunity.profit_percentage,
+                prec = self.precision
+            )
+        } else {
+            format!(
+                "{} | Solana: ${:.prec$} | Binance: ${:.prec$} | Spread: {:.2}% | Profit: ${:.prec$} ({:.2}%)",
+                format_trading_pair(opportunity.trading_pair),
+                if opportunity.buy_source == crate::price::PriceSource::Solana { opportunity.buy_price } else { opportunity.sell_price },
+                if opportunity.buy_source == crate::price::PriceSource::Binance { opportunity.buy_price } else { opportunity.sell_price },
+                spread_pct,
+                opportunity.net_profit_per_unit,
+                opportunity.profit_percentage,
+                prec = self.precision
+            )
+        }
     }
 
     /// Format price pair as table
@@ -264,12 +284,21 @@ impl OutputFormatter {
                 format_trading_pair(pair),
                 "-".repeat(40)
             ),
-            OutputFormat::Json => json!({
-                "type": "no_opportunities",
-                "trading_pair": format_trading_pair(pair).to_lowercase(),
-                "timestamp": chrono::Utc::now().to_rfc3339()
-            })
-            .to_string(),
+            OutputFormat::Json => {
+                let mut json_obj = json!({
+                    "type": "no_opportunities",
+                    "trading_pair": format_trading_pair(pair).to_lowercase(),
+                });
+                if self.show_timestamps {
+                    if let serde_json::Value::Object(ref mut map) = json_obj {
+                        map.insert(
+                            "timestamp".to_string(),
+                            json!(chrono::Utc::now().to_rfc3339()),
+                        );
+                    }
+                }
+                serde_json::to_string_pretty(&json_obj).unwrap_or_else(|_| "{}".to_string())
+            }
             OutputFormat::Compact => format!("No opportunities: {}", format_trading_pair(pair)),
         }
     }
@@ -364,8 +393,11 @@ mod tests {
         let opportunity = create_test_opportunity();
         let output = formatter.format_opportunity(&opportunity);
 
-        assert!(output.contains("ARBITRAGE SOL/USDT: Buy Binance"));
-        assert!(output.contains("Sell Solana"));
+        assert!(output.contains("SOL/USDT"));
+        assert!(output.contains("Solana:"));
+        assert!(output.contains("Binance:"));
+        assert!(output.contains("Spread:"));
+        assert!(output.contains("Profit:"));
         assert!(output.contains("0.38%"));
     }
 
