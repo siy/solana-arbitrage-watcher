@@ -289,18 +289,6 @@ impl FeeCalculator {
         (buy_fee + sell_fee + transfer_fee, gas_fee_usd_total)
     }
 
-    /// Calculate total fees for a complete arbitrage round trip
-    fn calculate_total_fees(
-        &self,
-        buy_price: f64,
-        sell_price: f64,
-        buy_source: PriceSource,
-        sell_source: PriceSource,
-    ) -> f64 {
-        let (per_unit_fees, per_trade_fees) =
-            self.calculate_fee_breakdown(buy_price, sell_price, buy_source, sell_source);
-        per_unit_fees + (per_trade_fees / self.default_trade_amount)
-    }
 
     /// Calculate recommended trade amount based on profit and risk
     fn calculate_recommended_amount(&self, _buy_price: f64, net_profit_per_unit: f64) -> f64 {
@@ -483,7 +471,7 @@ mod tests {
         let buy_price = 190.0;
         let sell_price = 195.0;
 
-        let total_fees = calculator.calculate_total_fees(
+        let (per_unit_fees, per_trade_fees) = calculator.calculate_fee_breakdown(
             buy_price,
             sell_price,
             PriceSource::Solana,
@@ -491,7 +479,8 @@ mod tests {
         );
 
         // Should include both trading fees plus gas fee for Solana
-        assert!(total_fees > 0.0);
+        assert!(per_unit_fees > 0.0);
+        assert!(per_trade_fees > 0.0);
     }
 
     #[test]
