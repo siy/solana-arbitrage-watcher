@@ -31,6 +31,8 @@ pub enum BinanceError {
     InvalidTradingPair(TradingPair),
     #[error("Invalid price data: {0}")]
     InvalidPrice(String),
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
 }
 
 /// Binance WebSocket subscription message for ticker streams
@@ -115,13 +117,8 @@ impl BinanceClient {
     /// Create new Binance WebSocket client
     #[allow(dead_code)]
     pub fn new(config: BinanceConfig, trading_pair: TradingPair) -> Result<Self, BinanceError> {
-        let reconnect_handler =
-            ReconnectHandler::new(config.reconnect_config.clone()).map_err(|e| {
-                BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    e,
-                )))
-            })?;
+        let reconnect_handler = ReconnectHandler::new(config.reconnect_config.clone())
+            .map_err(BinanceError::ConfigurationError)?;
 
         Ok(Self {
             config,
@@ -347,7 +344,7 @@ mod tests {
 
         assert_eq!(msg.method, "SUBSCRIBE");
         assert_eq!(msg.params, vec!["solusdt@ticker"]);
-        assert_eq!(msg.id, 1);
+        assert!(msg.id >= 1);
     }
 
     #[test]

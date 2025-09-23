@@ -148,7 +148,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     Err(e) => {
                         // Handle "no fresh data" as debug-level instead of error
-                        if e.to_string().contains("No fresh price data available") {
+                        const NO_FRESH_DATA_MSG: &str = "No fresh price data available";
+                        if e.to_string().contains(NO_FRESH_DATA_MSG) {
                             log::debug!("Waiting for fresh price data from both sources");
                         } else {
                             if let Some(ref metrics) = metrics_clone {
