@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn test_binance_config_creation() {
         let config = BinanceConfig::default();
-        assert_eq!(config.base_url, "wss://stream.binance.com:9443/ws");
+        assert_eq!(config.base_url, "wss://stream.binance.com:443/ws");
         assert_eq!(config.connection_timeout, Duration::from_secs(10));
 
         let custom_config = BinanceConfig::new(
@@ -376,7 +376,7 @@ mod tests {
         let client = BinanceClient::new(config, TradingPair::SolUsdt).unwrap();
 
         let url = client.build_websocket_url().unwrap();
-        assert_eq!(url.as_str(), "wss://stream.binance.com:9443/ws");
+        assert_eq!(url.as_str(), "wss://stream.binance.com/ws");
     }
 
     #[test]
