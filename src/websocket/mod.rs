@@ -83,7 +83,8 @@ impl ConnectionManager {
         log::info!("Starting Binance WebSocket client...");
         let binance_handle: JoinHandle<Result<(), BinanceError>> = tokio::spawn(async move {
             log::info!("Binance client task starting");
-            let result = self.binance_client
+            let result = self
+                .binance_client
                 .start(move |price_update| {
                     log::debug!("Received Binance price update: {:?}", price_update);
                     if let Some(metrics) = &binance_metrics {
