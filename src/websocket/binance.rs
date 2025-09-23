@@ -77,7 +77,7 @@ pub struct BinanceConfig {
 impl Default for BinanceConfig {
     fn default() -> Self {
         Self {
-            base_url: "wss://stream.binance.com:9443/ws".to_string(),
+            base_url: "wss://stream.binance.com:443/ws".to_string(),
             connection_timeout: Duration::from_secs(10),
             reconnect_config: ReconnectConfig::default(),
         }

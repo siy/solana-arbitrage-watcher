@@ -50,7 +50,9 @@ impl ConnectionManager {
     #[allow(dead_code)]
     pub fn new(config: &Config) -> Result<Self, ConnectionManagerError> {
         // Create Binance client with default configuration
+        log::info!("Creating Binance client for pair: {:?}", config.pair);
         let binance_client = BinanceClient::with_default(config.pair)?;
+        log::info!("Binance client created successfully");
 
         // Create Solana client from RPC providers in config with price bounds
         let solana_client = SolanaClient::from_providers_with_bounds(
@@ -78,15 +80,23 @@ impl ConnectionManager {
         // Start Binance connection
         let binance_cache = Arc::clone(&price_cache);
         let binance_metrics = self.metrics.clone();
+        log::info!("Starting Binance WebSocket client...");
         let binance_handle: JoinHandle<Result<(), BinanceError>> = tokio::spawn(async move {
-            self.binance_client
+            log::info!("Binance client task starting");
+            let result = self.binance_client
                 .start(move |price_update| {
+                    log::debug!("Received Binance price update: {:?}", price_update);
                     if let Some(metrics) = &binance_metrics {
                         metrics.record_binance_message();
                     }
                     binance_cache.update(&price_update);
                 })
-                .await
+                .await;
+
+            if let Err(ref e) = result {
+                log::error!("Binance client failed: {}", e);
+            }
+            result
         });
 
         // Start Solana connection
