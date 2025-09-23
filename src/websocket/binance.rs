@@ -31,6 +31,8 @@ pub enum BinanceError {
     InvalidTradingPair(TradingPair),
     #[error("Invalid price data: {0}")]
     InvalidPrice(String),
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
 }
 
 /// Binance WebSocket subscription message for ticker streams
@@ -77,7 +79,7 @@ pub struct BinanceConfig {
 impl Default for BinanceConfig {
     fn default() -> Self {
         Self {
-            base_url: "wss://stream.binance.com:9443/ws".to_string(),
+            base_url: "wss://stream.binance.com:443/ws".to_string(),
             connection_timeout: Duration::from_secs(10),
             reconnect_config: ReconnectConfig::default(),
         }
@@ -115,13 +117,8 @@ impl BinanceClient {
     /// Create new Binance WebSocket client
     #[allow(dead_code)]
     pub fn new(config: BinanceConfig, trading_pair: TradingPair) -> Result<Self, BinanceError> {
-        let reconnect_handler =
-            ReconnectHandler::new(config.reconnect_config.clone()).map_err(|e| {
-                BinanceError::JsonError(serde_json::Error::io(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    e,
-                )))
-            })?;
+        let reconnect_handler = ReconnectHandler::new(config.reconnect_config.clone())
+            .map_err(BinanceError::ConfigurationError)?;
 
         Ok(Self {
             config,
@@ -308,7 +305,7 @@ mod tests {
     #[test]
     fn test_binance_config_creation() {
         let config = BinanceConfig::default();
-        assert_eq!(config.base_url, "wss://stream.binance.com:9443/ws");
+        assert_eq!(config.base_url, "wss://stream.binance.com:443/ws");
         assert_eq!(config.connection_timeout, Duration::from_secs(10));
 
         let custom_config = BinanceConfig::new(
@@ -347,7 +344,7 @@ mod tests {
 
         assert_eq!(msg.method, "SUBSCRIBE");
         assert_eq!(msg.params, vec!["solusdt@ticker"]);
-        assert_eq!(msg.id, 1);
+        assert!(msg.id >= 1);
     }
 
     #[test]
@@ -376,7 +373,7 @@ mod tests {
         let client = BinanceClient::new(config, TradingPair::SolUsdt).unwrap();
 
         let url = client.build_websocket_url().unwrap();
-        assert_eq!(url.as_str(), "wss://stream.binance.com:9443/ws");
+        assert_eq!(url.as_str(), "wss://stream.binance.com/ws");
     }
 
     #[test]

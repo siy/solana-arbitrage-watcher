@@ -147,20 +147,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     Err(e) => {
-                        if let Some(ref metrics) = metrics_clone {
-                            metrics.record_error();
+                        // Handle "no fresh data" as debug-level instead of error
+                        const NO_FRESH_DATA_MSG: &str = "No fresh price data available";
+                        if e.to_string().contains(NO_FRESH_DATA_MSG) {
+                            log::debug!("Waiting for fresh price data from both sources");
+                        } else {
+                            if let Some(ref metrics) = metrics_clone {
+                                metrics.record_error();
+                            }
+
+                            let output_start = std::time::Instant::now();
+                            let formatted_output = formatter.format_error(&e.to_string());
+                            let output_duration = output_start.elapsed();
+
+                            if let Some(ref metrics) = metrics_clone {
+                                metrics.record_output_time(output_duration);
+                            }
+
+                            println!("{}", formatted_output);
+                            println!();
                         }
-
-                        let output_start = std::time::Instant::now();
-                        let formatted_output = formatter.format_error(&e.to_string());
-                        let output_duration = output_start.elapsed();
-
-                        if let Some(ref metrics) = metrics_clone {
-                            metrics.record_output_time(output_duration);
-                        }
-
-                        println!("{}", formatted_output);
-                        println!();
                     }
                 }
             }
