@@ -340,7 +340,7 @@ impl Config {
     fn get_default_providers() -> Vec<RpcProvider> {
         vec![
             RpcProvider {
-                name: "Public Solana (Limited)".to_string(),
+                name: "Mainnet Beta (Primary)".to_string(),
                 websocket_url: "wss://api.mainnet-beta.solana.com/"
                     .parse()
                     .expect("Invalid default RPC URL"),
@@ -348,8 +348,8 @@ impl Config {
                 provider_type: RpcProviderType::Public,
             },
             RpcProvider {
-                name: "Solana Devnet (Fallback)".to_string(),
-                websocket_url: "wss://api.devnet.solana.com/"
+                name: "Ankr Mainnet (Backup)".to_string(),
+                websocket_url: "wss://rpc.ankr.com/solana/ws"
                     .parse()
                     .expect("Invalid default RPC URL"),
                 priority: 2,
