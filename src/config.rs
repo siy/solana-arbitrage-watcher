@@ -349,7 +349,7 @@ impl Config {
             },
             RpcProvider {
                 name: "Ankr Mainnet (Backup)".to_string(),
-                websocket_url: "wss://rpc.ankr.com/solana_ws"
+                websocket_url: "wss://rpc.ankr.com/solana/ws"
                     .parse()
                     .expect("Invalid default RPC URL"),
                 priority: 2,
